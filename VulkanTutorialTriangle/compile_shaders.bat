@@ -1,0 +1,2 @@
+C:/VulkanSDK/1.1.121.2/Bin/glslc.exe ./VulkanTutorialTriangle/resources/shaders/test.vert -o ./VulkanTutorialTriangle/resources/shaders/vert.spv
+C:/VulkanSDK/1.1.121.2/Bin/glslc.exe ./VulkanTutorialTriangle/resources/shaders/test.frag -o ./VulkanTutorialTriangle/resources/shaders/frag.spv
