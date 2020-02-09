@@ -25,6 +25,9 @@
     <Filter Include="src">
       <UniqueIdentifier>{2DAB880B-99B4-887C-2230-9F7C8E38947C}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Include">
+      <UniqueIdentifier>{6c76b1a7-39d5-4888-8291-38f426cc8e6d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\deps\GLFW\glfw3.h">
@@ -1137,12 +1140,30 @@
     <ClInclude Include="..\deps\glm\vector_relational.hpp">
       <Filter>deps\glm</Filter>
     </ClInclude>
+    <ClInclude Include="..\include\constants.h">
+      <Filter>Include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\platform_types.h">
+      <Filter>Include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\render_context.h">
+      <Filter>Include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\window.h">
+      <Filter>Include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\deps\glm\detail\glm.cpp">
       <Filter>deps\glm\detail</Filter>
     </ClCompile>
     <ClCompile Include="..\src\main.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\render_context.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\window.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>

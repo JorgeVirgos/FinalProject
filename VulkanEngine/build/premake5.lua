@@ -11,8 +11,8 @@ workspace "VulkanEngine"
 files {
     
     --VulkanEngine
-    "../include/deps/VulkanEngine/*.h",
-    "../src/deps/VulkanEngine/*.cpp",
+    "../include/deps/*.h",
+    "../src/*.cpp",
     --
     
     -- GLFW
@@ -66,7 +66,7 @@ files {
 }
 
 removefiles{
-
+    "../src/triangle_main.cpp"
 }
 
 

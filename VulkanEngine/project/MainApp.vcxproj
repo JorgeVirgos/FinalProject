@@ -465,10 +465,16 @@
     <ClInclude Include="..\deps\glm\vec3.hpp" />
     <ClInclude Include="..\deps\glm\vec4.hpp" />
     <ClInclude Include="..\deps\glm\vector_relational.hpp" />
+    <ClInclude Include="..\include\constants.h" />
+    <ClInclude Include="..\include\platform_types.h" />
+    <ClInclude Include="..\include\render_context.h" />
+    <ClInclude Include="..\include\window.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\deps\glm\detail\glm.cpp" />
     <ClCompile Include="..\src\main.cpp" />
+    <ClCompile Include="..\src\render_context.cpp" />
+    <ClCompile Include="..\src\window.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
