@@ -1,6 +1,7 @@
 #include "render_context.h"
 
 #include <GLFW/glfw3.h>
+#include "constants.h"
 #include <set>
 #include <cstdint>
 #include <algorithm>
@@ -8,6 +9,24 @@
 #include <stdexcept>
 #include <functional>
 #include <cstdlib>
+#include <array>
+#include "platform_types.h"
+
+const std::vector<VKE::Vertex> triangle_vertices = {
+	{{0.0f,-0.5f,0.0f},{1.0f,0.0f,0.0f},{0.5f,0.0f}},
+	{{0.5f,0.5f,0.0f},{0.0f,1.0f,0.0f},{1.0f,1.0f}},
+	{{-0.5f,0.5f,0.0f},{0.0f,0.0f,1.0f},{0.0f,1.0f}}
+};
+
+const std::vector<VKE::Vertex> square_vertices = {
+	{{-0.5f,-0.5f,0.0f},{1.0f,0.0f,0.0f},{0.5f,0.0f}},
+	{{0.5f,-0.5f,0.0f},{0.0f,1.0f,0.0f},{1.0f,1.0f}},
+	{{-0.5f,0.5f,0.0f},{0.0f,0.0f,1.0f},{0.0f,1.0f}},
+
+	{{0.5f,-0.5f,0.0f},{0.0f,1.0f,0.0f},{1.0f,1.0f}},
+	{{0.5f,0.5f,0.0f},{0.0f,0.0f,1.0f},{0.0f,1.0f}},
+	{{-0.5f,0.5f,0.0f},{0.0f,0.0f,1.0f},{0.0f,1.0f}}
+};
 
 VKE::RenderContext::RenderContext() {
 
@@ -33,6 +52,7 @@ void VKE::RenderContext::init(GLFWwindow* window) {
 	createGraphicsPipeline();
 	createFramebuffers();
 	createCommandPool();
+	createVertexBuffer();
 	createCommandBuffers();
 	createSyncObjects();
 }
@@ -45,6 +65,14 @@ void VKE::RenderContext::cleanup() {
 		vkDestroySemaphore(device, renderFinishedSemaphore[i], nullptr);
 		vkDestroyFence(device, inFlightFences[i], nullptr);
 	}
+
+	//vkDestroyBuffer(device, vertexBuffer, nullptr);
+	//vkFreeMemory(device, vertexBufferMemory, nullptr);
+
+	for (size_t i = 0; i < internal_buffers_.size(); i++) {
+		internal_buffers_[i].reset(this);
+	}
+	//std::for_each(internal_buffers_.begin(), internal_buffers_.end(), [this](VKE::InternalBuffer buffer) { buffer.reset(this); });
 
 	vkDestroyCommandPool(device, commandPool, nullptr);
 
@@ -77,6 +105,8 @@ void VKE::RenderContext::draw() {
 	if (imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
 		vkWaitForFences(device, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
 	}
+
+	rerecordSingleCommand(commandBuffers[imageIndex], swapChainFramebuffers[imageIndex]);
 
 	imagesInFlight[imageIndex] = inFlightFences[currentFrame];
 
@@ -524,12 +554,19 @@ void VKE::RenderContext::createGraphicsPipeline() {
 
 	VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
+
+	// GEOMETRY
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexInputInfo.vertexBindingDescriptionCount = 0;
-	vertexInputInfo.pVertexBindingDescriptions = nullptr; // Optional
-	vertexInputInfo.vertexAttributeDescriptionCount = 0;
-	vertexInputInfo.pVertexAttributeDescriptions = nullptr; // Optional
+
+	auto bindingDescription = VKE::Vertex::getBindingDescription();
+	auto AttributeDescriptions = VKE::Vertex::getAttributeDescriptions();
+
+	vertexInputInfo.vertexBindingDescriptionCount = 1;
+	vertexInputInfo.vertexAttributeDescriptionCount = AttributeDescriptions.size();
+
+	vertexInputInfo.pVertexBindingDescriptions = &bindingDescription; // Optional
+	vertexInputInfo.pVertexAttributeDescriptions = AttributeDescriptions.data(); // Optional
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
 	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -748,12 +785,61 @@ void VKE::RenderContext::createCommandPool() {
 	VkCommandPoolCreateInfo poolInfo = {};
 	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	poolInfo.queueFamilyIndex = indices.graphicsFamily.value();
-	poolInfo.flags = 0;
+	poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
 	if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create command pool!");
 	}
 
+}
+
+uint32 VKE::RenderContext::findMemoryType(uint32 type_filter, VkMemoryPropertyFlags properties) {
+	VkPhysicalDeviceMemoryProperties memProperties;
+	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+
+	for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+		if (type_filter & (1 << i) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+			return i;
+		}
+	}
+
+	throw std::runtime_error("failed to find suitable memory type!");
+}
+
+void VKE::RenderContext::createVertexBuffer() {
+	/*VkBufferCreateInfo bufferInfo = {};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.size = sizeof(triangle_vertices[0]) * triangle_vertices.size();
+	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+	if (vkCreateBuffer(device, &bufferInfo, nullptr, &vertexBuffer) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create vertex buffer!");
+	}
+
+	VkMemoryRequirements memRequirements;
+	vkGetBufferMemoryRequirements(device, vertexBuffer, &memRequirements);
+
+	VkMemoryAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	allocInfo.allocationSize = memRequirements.size;
+	allocInfo.memoryTypeIndex = findMemoryType(
+		memRequirements.memoryTypeBits, 
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+	if (vkAllocateMemory(device, &allocInfo, nullptr, &vertexBufferMemory) != VK_SUCCESS) {
+		throw std::runtime_error("failed to allocate vertex buffer memory!");
+	}
+
+	vkBindBufferMemory(device, vertexBuffer, vertexBufferMemory, 0);
+
+	//may not be immediate, we sacrifice efficiency but assure it to be synced by adding VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+	void* data = nullptr;
+	vkMapMemory(device, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
+	memcpy(data, triangle_vertices.data(), (size_t)bufferInfo.size);
+	vkUnmapMemory(device, vertexBufferMemory);*/
+
+	std::fill_n(std::back_inserter(internal_buffers_), 100, VKE::InternalBuffer());
 }
 
 void VKE::RenderContext::createCommandBuffers() {
@@ -769,39 +855,7 @@ void VKE::RenderContext::createCommandBuffers() {
 		throw std::runtime_error("failed to allocate command buffers!");
 	}
 
-	for (size_t i = 0; i < commandBuffers.size(); i++) {
-		VkCommandBufferBeginInfo beginInfo = {};
-		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		beginInfo.flags = 0; // Optional
-		beginInfo.pInheritanceInfo = nullptr; // Optional
-
-		if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS) {
-			throw std::runtime_error("failed to begin recording command buffer!");
-		}
-
-		VkRenderPassBeginInfo renderPassInfo = {};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassInfo.renderPass = renderPass;
-		renderPassInfo.framebuffer = swapChainFramebuffers[i];
-
-		renderPassInfo.renderArea.offset = { 0, 0 };
-		renderPassInfo.renderArea.extent = swapChainExtent;
-
-		VkClearValue clearColor = { 0.6f,0.6f,0.2f,1.0f };
-		renderPassInfo.clearValueCount = 1;
-		renderPassInfo.pClearValues = &clearColor;
-
-		vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-		vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
-
-		vkCmdEndRenderPass(commandBuffers[i]);
-
-		if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
-			throw std::runtime_error("failed to record command buffer!");
-		}
-	}
+	recordCommands();
 }
 
 void VKE::RenderContext::createSyncObjects() {
@@ -919,4 +973,125 @@ void VKE::RenderContext::recreateSwapChain() {
 	createGraphicsPipeline();
 	createFramebuffers();
 	createCommandBuffers();
+}
+
+void VKE::RenderContext::recordCommands() {
+
+	std::vector<uint32> valid_buffer_indices;
+	for (uint32 i = 0; i < internal_buffers_.size(); ++i) {
+		if (internal_buffers_[i].isAllocated()) valid_buffer_indices.push_back(i);
+	}
+
+	for (size_t i = 0; i < commandBuffers.size(); i++) {
+		VkCommandBufferBeginInfo beginInfo = {};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		beginInfo.flags = 0; // Optional
+		beginInfo.pInheritanceInfo = nullptr; // Optional
+
+		if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS) {
+			throw std::runtime_error("failed to begin recording command buffer!");
+		}
+
+		VkRenderPassBeginInfo renderPassInfo = {};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = renderPass;
+		renderPassInfo.framebuffer = swapChainFramebuffers[i];
+
+		renderPassInfo.renderArea.offset = { 0, 0 };
+		renderPassInfo.renderArea.extent = swapChainExtent;
+
+		VkClearValue clearColor = { 0.6f,0.6f,0.2f,1.0f };
+		renderPassInfo.clearValueCount = 1;
+		renderPassInfo.pClearValues = &clearColor;
+
+		vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
+		for (uint32 vb_index : valid_buffer_indices) {
+			VkDeviceSize offsets[] = { 0 };
+			VkBuffer buffer_handle = internal_buffers_[vb_index].getBufferHandle();
+			vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, &buffer_handle, offsets);
+
+			vkCmdDraw(commandBuffers[i], internal_buffers_[vb_index].getVertexCount(), 1, 0, 0);
+		}
+
+		vkCmdEndRenderPass(commandBuffers[i]);
+
+		if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
+			throw std::runtime_error("failed to record command buffer!");
+		}
+	}
+}
+
+void VKE::RenderContext::rerecordSingleCommand(VkCommandBuffer command_buffer, VkFramebuffer spawchain_framebuffer) {
+	std::vector<uint32> valid_buffer_indices;
+	for (uint32 i = 0; i < internal_buffers_.size(); ++i) {
+		if (internal_buffers_[i].isAllocated()) valid_buffer_indices.push_back(i);
+	}
+
+	VkCommandBufferBeginInfo beginInfo = {};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = 0; // Optional
+	beginInfo.pInheritanceInfo = nullptr; // Optional
+
+	if (vkBeginCommandBuffer(command_buffer, &beginInfo) != VK_SUCCESS) {
+		throw std::runtime_error("failed to begin recording command buffer!");
+	}
+
+	VkRenderPassBeginInfo renderPassInfo = {};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassInfo.renderPass = renderPass;
+	renderPassInfo.framebuffer = spawchain_framebuffer;
+
+	renderPassInfo.renderArea.offset = { 0, 0 };
+	renderPassInfo.renderArea.extent = swapChainExtent;
+
+	VkClearValue clearColor = { 0.6f,0.6f,0.2f,1.0f };
+	renderPassInfo.clearValueCount = 1;
+	renderPassInfo.pClearValues = &clearColor;
+
+	vkCmdBeginRenderPass(command_buffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
+	for (uint32 vb_index : valid_buffer_indices) {
+		VkDeviceSize offsets[] = { 0 };
+		VkBuffer buffer_handle = internal_buffers_[vb_index].getBufferHandle();
+		vkCmdBindVertexBuffers(command_buffer, 0, 1, &buffer_handle, offsets);
+
+		vkCmdDraw(command_buffer, internal_buffers_[vb_index].getVertexCount(), 1, 0, 0);
+	}
+
+	vkCmdEndRenderPass(command_buffer);
+
+	if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS) {
+		throw std::runtime_error("failed to record command buffer!");
+	}
+}
+
+
+VKE::Buffer VKE::RenderContext::getBuffer() {
+
+	VKE::Buffer buf;
+	buf.id_ = UINT32_MAX;
+	for (uint32 i = 0; i < internal_buffers_.size(); ++i) {
+		if (!internal_buffers_.at(i).isInitialised() && !internal_buffers_.at(i).isAllocated()) {
+			buf.id_ = i;
+			break;
+		}
+	}
+
+	if (buf.id_ == UINT32_MAX) {
+		std::fill_n(std::back_inserter(internal_buffers_), 100, VKE::InternalBuffer());
+		return getBuffer();
+	}
+	else {
+		return buf;
+	}
+
+}
+
+VKE::InternalBuffer& VKE::RenderContext::accessInternalBuffer(Buffer buffer) {
+	return internal_buffers_.at(buffer.id_);
 }

@@ -3,14 +3,19 @@
 
 
 #include <vulkan/vulkan.h>
+#include "platform_types.h"
+#include "internal_buffer.h"
 #include <vector>
 #include <optional>
 #include <iostream>
 #include <fstream>
 
+
 class GLFWwindow;
 
 namespace VKE {
+
+	class InternalBuffer;
 
 	//VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
 	//	const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
@@ -41,6 +46,12 @@ namespace VKE {
 
 		void draw();
 
+		VkDevice getDevice() { return device; }
+		VkPhysicalDevice getPhysicalDevice() { return physicalDevice; }
+		uint32 findMemoryType(uint32 type_filter, VkMemoryPropertyFlags properties);
+
+		Buffer getBuffer();
+		InternalBuffer& accessInternalBuffer(Buffer buffer);
 
 	private:
 
@@ -72,6 +83,7 @@ namespace VKE {
 		void createRenderPass();
 		void createGraphicsPipeline();
 		void createFramebuffers();
+		void createVertexBuffer();
 		void createCommandPool();
 		void createCommandBuffers();
 		void createSyncObjects();
@@ -90,6 +102,8 @@ namespace VKE {
 		std::vector<const char*> getRequiredExtensions();
 		void cleanupSwapChain();
 		void recreateSwapChain();
+		void recordCommands();
+		void rerecordSingleCommand(VkCommandBuffer command_buffer, VkFramebuffer spawchain_framebuffer);
 
 		static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 			VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -159,6 +173,10 @@ namespace VKE {
 		VkRenderPass renderPass;
 		VkPipelineLayout pipelineLayout;
 		VkPipeline graphicsPipeline;
+
+		std::vector<InternalBuffer> internal_buffers_;
+		//VkBuffer vertexBuffer;
+		//VkDeviceMemory vertexBufferMemory;
 
 		VkCommandPool commandPool;
 		std::vector<VkCommandBuffer> commandBuffers;

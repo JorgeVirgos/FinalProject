@@ -11,7 +11,7 @@ workspace "VulkanEngine"
 files {
     
     --VulkanEngine
-    "../include/deps/*.h",
+    "../include/*.h",
     "../src/*.cpp",
     --
     

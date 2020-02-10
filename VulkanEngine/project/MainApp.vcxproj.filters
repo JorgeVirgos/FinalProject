@@ -22,11 +22,11 @@
     <Filter Include="deps\glm\gtx">
       <UniqueIdentifier>{22A84E8A-0E0B-DE2E-B790-16E5A3D2A9B1}</UniqueIdentifier>
     </Filter>
+    <Filter Include="include">
+      <UniqueIdentifier>{89AF369E-F58E-B539-FEA6-40106A051C9B}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src">
       <UniqueIdentifier>{2DAB880B-99B4-887C-2230-9F7C8E38947C}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Include">
-      <UniqueIdentifier>{6c76b1a7-39d5-4888-8291-38f426cc8e6d}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -1141,21 +1141,33 @@
       <Filter>deps\glm</Filter>
     </ClInclude>
     <ClInclude Include="..\include\constants.h">
-      <Filter>Include</Filter>
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\geometry_primitives.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\internal_buffer.h">
+      <Filter>include</Filter>
     </ClInclude>
     <ClInclude Include="..\include\platform_types.h">
-      <Filter>Include</Filter>
+      <Filter>include</Filter>
     </ClInclude>
     <ClInclude Include="..\include\render_context.h">
-      <Filter>Include</Filter>
+      <Filter>include</Filter>
     </ClInclude>
     <ClInclude Include="..\include\window.h">
-      <Filter>Include</Filter>
+      <Filter>include</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\deps\glm\detail\glm.cpp">
       <Filter>deps\glm\detail</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\geometry_primitives.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\internal_buffer.cpp">
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="..\src\main.cpp">
       <Filter>src</Filter>
