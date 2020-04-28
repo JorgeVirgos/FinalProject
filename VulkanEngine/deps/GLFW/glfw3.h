@@ -29,6 +29,8 @@
 #ifndef _glfw3_h_
 #define _glfw3_h_
 
+#pragma warning(push, 0)
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -5836,6 +5838,7 @@ GLFWAPI int glfwGetPhysicalDevicePresentationSupport(VkInstance instance, VkPhys
  */
 GLFWAPI VkResult glfwCreateWindowSurface(VkInstance instance, GLFWwindow* window, const VkAllocationCallbacks* allocator, VkSurfaceKHR* surface);
 
+
 #endif /*VK_VERSION_1_0*/
 
 
@@ -5869,5 +5872,7 @@ GLFWAPI VkResult glfwCreateWindowSurface(VkInstance instance, GLFWwindow* window
 }
 #endif
 
+
 #endif /* _glfw3_h_ */
 
+#pragma warning(pop)

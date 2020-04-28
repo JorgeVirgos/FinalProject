@@ -2,6 +2,7 @@
 /// @file glm/detail/type_quat.hpp
 
 #pragma once
+#pragma warning(push, 0)
 
 // Dependency:
 #include "../detail/type_mat3x3.hpp"
@@ -180,6 +181,9 @@ namespace glm
 	template<typename T, qualifier Q>
 	GLM_FUNC_DECL GLM_CONSTEXPR bool operator!=(qua<T, Q> const& q1, qua<T, Q> const& q2);
 } //namespace glm
+
+#pragma warning(pop)
+
 
 #ifndef GLM_EXTERNAL_TEMPLATE
 #include "type_quat.inl"

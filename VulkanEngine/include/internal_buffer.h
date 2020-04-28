@@ -1,46 +1,57 @@
 #ifndef __INTERNAL_BUFFER_H__
 #define __INTERNAL_BUFFER_H__ 1
 
-#include "platform_types.h"
+#include "internal_base_resource.h"
 #include "constants.h"
 #include <vector>
 
 namespace VKE {
 
 	class RenderContext;
+	class InternalBuffer;
+
 
 	//Dispatching a Buffer int handle corresponding to vector of InternalBuffer
-	struct Buffer {
-		uint32 id_;
+	struct Buffer : public BaseHandle {
+		Buffer() {};
+		~Buffer() {};
+		typedef InternalBuffer internal_class;
+
+	private:
+		Buffer(uint32 id) { id_ = id; }
+		friend class RenderContext;
 	};
 
-	class InternalBuffer {
+
+	class InternalBuffer : public BaseResource {
 	public:
 		InternalBuffer();
 		~InternalBuffer();
 
-		void init(RenderContext* render_ctx, uint32 vertex_count, VkBufferUsageFlags usage);
-		void uploadData(std::vector<VKE::Vertex> vertex_data, VkMemoryPropertyFlags mem_properties);
+		void reset(RenderContext* render_ctx) override;
 
-		void reset(RenderContext* render_ctx);
+		void init(RenderContext* render_ctx, uint32 element_size, size_t element_count, BufferType buffer_type);
+		void uploadData(void* data);
 
-		VkBuffer getBufferHandle() { return buffer_; }
-		uint32 getVertexCount() { return vertex_count_; }
-
-		bool isInitialised() { return has_been_initialised_; }
-		bool isAllocated() { return has_been_allocated_; }
+		//VkBuffer getBufferHandle() { return buffer_; }
+		uint32 getElementCount() { return element_count_; }
+		BufferType getBufferType() { return buffer_type_; }
 
 	private:
 
-		VKE::RenderContext* render_ctx_;
+		BufferType buffer_type_;
+
+		uint32 element_count_;
+		uint32 element_size_;
 
 		VkBuffer buffer_;
-		bool has_been_initialised_;
-
+		VkWriteDescriptorSet buffer_descriptor_;
 		VkDeviceMemory buffer_memory_;
-		bool has_been_allocated_;
+		VkMemoryPropertyFlags mem_properties_;
+		VkDescriptorSet uniform_desc_set_;
 
-		uint32 vertex_count_;
+		friend class RenderContext;
+
 	};
 }
 

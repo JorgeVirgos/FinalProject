@@ -1140,13 +1140,28 @@
     <ClInclude Include="..\deps\glm\vector_relational.hpp">
       <Filter>deps\glm</Filter>
     </ClInclude>
+    <ClInclude Include="..\deps\stb_image.h">
+      <Filter>deps</Filter>
+    </ClInclude>
     <ClInclude Include="..\include\constants.h">
       <Filter>include</Filter>
     </ClInclude>
     <ClInclude Include="..\include\geometry_primitives.h">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="..\include\hierarchy_context.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\internal_base_resource.h">
+      <Filter>include</Filter>
+    </ClInclude>
     <ClInclude Include="..\include\internal_buffer.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\internal_material.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\internal_texture.h">
       <Filter>include</Filter>
     </ClInclude>
     <ClInclude Include="..\include\platform_types.h">
@@ -1163,10 +1178,22 @@
     <ClCompile Include="..\deps\glm\detail\glm.cpp">
       <Filter>deps\glm\detail</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\constants.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
     <ClCompile Include="..\src\geometry_primitives.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\hierarchy_context.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
     <ClCompile Include="..\src\internal_buffer.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\internal_material.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\internal_texture.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="..\src\main.cpp">

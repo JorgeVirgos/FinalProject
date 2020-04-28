@@ -66,11 +66,15 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>glfw3.lib;vulkan-1.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>C:\VulkanSDK\1.1.121.2\Lib;..\libs\GLFW;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>/SUBSYSTEM:CONSOLE /NODEFAULTLIB:library %(AdditionalOptions)</AdditionalOptions>
     </Link>
+    <PreBuildEvent>
+      <Command>../build/compile_shaders.bat</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -92,7 +96,11 @@
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>glfw3.lib;vulkan-1.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>C:\VulkanSDK\1.1.121.2\Lib;..\libs\GLFW;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>/SUBSYSTEM:CONSOLE /NODEFAULTLIB:library %(AdditionalOptions)</AdditionalOptions>
     </Link>
+    <PreBuildEvent>
+      <Command>../build/compile_shaders.bat</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\deps\GLFW\glfw3.h" />
@@ -465,17 +473,26 @@
     <ClInclude Include="..\deps\glm\vec3.hpp" />
     <ClInclude Include="..\deps\glm\vec4.hpp" />
     <ClInclude Include="..\deps\glm\vector_relational.hpp" />
+    <ClInclude Include="..\deps\stb_image.h" />
     <ClInclude Include="..\include\constants.h" />
     <ClInclude Include="..\include\geometry_primitives.h" />
+    <ClInclude Include="..\include\hierarchy_context.h" />
+    <ClInclude Include="..\include\internal_base_resource.h" />
     <ClInclude Include="..\include\internal_buffer.h" />
+    <ClInclude Include="..\include\internal_material.h" />
+    <ClInclude Include="..\include\internal_texture.h" />
     <ClInclude Include="..\include\platform_types.h" />
     <ClInclude Include="..\include\render_context.h" />
     <ClInclude Include="..\include\window.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\deps\glm\detail\glm.cpp" />
+    <ClCompile Include="..\src\constants.cpp" />
     <ClCompile Include="..\src\geometry_primitives.cpp" />
+    <ClCompile Include="..\src\hierarchy_context.cpp" />
     <ClCompile Include="..\src\internal_buffer.cpp" />
+    <ClCompile Include="..\src\internal_material.cpp" />
+    <ClCompile Include="..\src\internal_texture.cpp" />
     <ClCompile Include="..\src\main.cpp" />
     <ClCompile Include="..\src\render_context.cpp" />
     <ClCompile Include="..\src\window.cpp" />

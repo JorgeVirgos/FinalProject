@@ -63,6 +63,8 @@ files {
 
     "../deps/glm/detail/*.cpp",
     --
+
+    "../deps/stb_image.h"
 }
 
 removefiles{
@@ -82,7 +84,9 @@ project "MainApp"
 
      
     defines {"WIN64", "WINDOWS"}
-     buildoptions { "/W4" }
+    buildoptions { "/W4" }
+		linkoptions {"/SUBSYSTEM:CONSOLE", "/NODEFAULTLIB:library"}
+		prebuildcommands {"../build/compile_shaders.bat"}
 
 
     targetdir "../bin/%{cfg.buildcfg}"

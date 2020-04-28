@@ -2,10 +2,30 @@
 #define __CONSTANTS_H__ 1
 
 #include <array>
+#include <vector>
 #include <vulkan/vulkan.h>
 #include <glm/glm.hpp>
+#include <fstream>
+#include "platform_types.h"
 
 namespace VKE{
+
+	enum DescriptorType {
+		DescriptorType_Matrices = 0,
+		DescriptorType_Textures,
+		DescriptorType_MAX
+	};
+
+	
+
+	enum BufferType {
+		BufferType_Vertex = 0,
+		BufferType_Index,
+		BufferType_Uniform,
+		BufferType_Staging,
+		BufferType_MAX
+	};
+
 	struct Vertex {
 		glm::vec3 pos;
 		glm::vec3 color;
@@ -54,5 +74,56 @@ namespace VKE{
 		}
 
 	};
+
+	struct UniformBufferMatrices {
+		alignas(16) glm::mat4 model;
+		alignas(16) glm::mat4 view;
+		alignas(16) glm::mat4 proj;
+	};
 }
+
+//const std::vector<VKE::Vertex> triangle_vertices = {
+//	{{0.0f,-0.5f,0.0f},{1.0f,0.0f,0.0f}},
+//	{{0.5f,0.5f,0.0f},{0.0f,1.0f,0.0f}},
+//	{{-0.5f,0.5f,0.0f},{0.0f,0.0f,1.0f}}
+//};
+//
+//const std::vector<VKE::Vertex> square_vertices = {
+//	{{-0.5f,-0.5f,0.0f},{1.0f,0.0f,0.0f}},
+//	{{0.5f,-0.5f,0.0f},{0.0f,1.0f,0.0f}},
+//	{{-0.5f,0.5f,0.0f},{0.0f,0.0f,1.0f}},
+//
+//	{{0.5f,-0.5f,0.0f},{0.0f,1.0f,0.0f}},
+//	{{0.5f,0.5f,0.0f},{1.0f,0.0f,0.0f}},
+//	{{-0.5f,0.5f,0.0f},{0.0f,0.0f,1.0f}}
+//};
+
+const std::vector<VKE::Vertex> indexed_square_vertices = {
+	{{-0.5f,-0.5f,0.0f},	{1.0f,0.0f,0.0f},	{1.0f, 0.0f}},
+	{{0.5f,-0.5f,0.0f},		{0.0f,1.0f,0.0f},	{0.0f, 0.0f}},
+	{{0.5f,0.5f,0.0f},		{0.0f,0.0f,1.0f},	{0.0f, 1.0f}},
+	{{-0.5f,0.5f,0.0f},		{1.0f,1.0f,1.0f},	{1.0f, 1.0f}}
+};
+
+const std::vector<ushort16> indexed_square_indices = {
+	0,1,2,2,3,0
+};
+
+static inline std::vector<char8> readFile(const std::string& filename) {
+	std::ifstream file(filename, std::ios::ate | std::ios::binary);
+
+	if (!file.is_open()) {
+		throw std::runtime_error("failed to open file!");
+	}
+
+	size_t fileSize = (size_t)file.tellg();
+	std::vector<char8> buffer(fileSize);
+	file.seekg(0);
+	file.read(buffer.data(), fileSize);
+
+	file.close();
+
+	return buffer;
+}
+
 #endif //__CONSTANTS_H__
