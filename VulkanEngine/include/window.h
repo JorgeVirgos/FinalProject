@@ -25,10 +25,22 @@ namespace VKE {
 		bool ShouldWindowClose();
 		void PollEvents();
 		void Update();
+
 		KeyState GetKeyState(uint64 input_key);
+		bool IsKeyUp(uint64 input_key);
+		bool IsKeyDown(uint64 input_key);
+		bool IsKeyPressed(uint64 input_key);
+
+		KeyState GetMouseButtonState(uint64 input_key);
+		bool IsMouseButtonUp(uint64 input_key);
+		bool IsMouseButtonDown(uint64 input_key);
+		bool IsMouseButtonPressed(uint64 input_key);
 
 		uint32 width() { return win_width; }
 		uint32 height() { return win_height; }
+
+		void SetMousePosition(float64 x, float64 y);
+		void getMousePosition(float64& x, float64& y);
 
 		void shutdownWindow();
 
@@ -40,6 +52,12 @@ namespace VKE {
 		int32 win_height = 600;
 
 		std::map<uint64, KeyState> input_key_states_;
+		std::map<uint64, KeyState> previous_input_key_states_;
+
+		std::map<uint64, KeyState> input_mouse_key_states_;
+		std::map<uint64, KeyState> previous_input_mouse_key_states_;
+
+
 
 	};
 }

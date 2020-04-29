@@ -25,6 +25,45 @@
     <Filter Include="include">
       <UniqueIdentifier>{89AF369E-F58E-B539-FEA6-40106A051C9B}</UniqueIdentifier>
     </Filter>
+    <Filter Include="resources">
+      <UniqueIdentifier>{202B5BA7-8C95-0F1E-D5D3-C0C3417DED72}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources\models">
+      <UniqueIdentifier>{F30C3C32-DF05-5B84-0838-4009F48F3A90}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources\models\adamHead">
+      <UniqueIdentifier>{E77B3DAE-533E-7138-9CEE-FFC408F04916}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources\models\adamHead\Assets">
+      <UniqueIdentifier>{E9783E3A-D5C9-297C-FE2D-183EEADDBCE5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources\models\adamHead\Assets\Models">
+      <UniqueIdentifier>{7CCAD149-E859-9334-F155-744C5D64CE40}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources\models\adamHead\Assets\Models\PBR">
+      <UniqueIdentifier>{6FCB851A-DB30-19A1-6409-BB79D06D0E10}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources\models\adamHead\Assets\Models\PBR\Adam">
+      <UniqueIdentifier>{71234103-5DCC-A832-8662-C4B1726AC373}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources\models\adamHead\Assets\Models\PBR\Adam\Textures">
+      <UniqueIdentifier>{64646FDE-D0D6-B1FA-196B-E77E851C7CF3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Mask">
+      <UniqueIdentifier>{9F27706C-8BFD-F669-74A7-11BD601C2A0B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources\models\the_lighthouse">
+      <UniqueIdentifier>{5EDF07AC-CAC2-16EC-D3C5-44283F28DD3C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources\models\the_lighthouse\textures">
+      <UniqueIdentifier>{1177FBC3-FDF3-EE06-2671-EF1A124D8B9A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources\shaders">
+      <UniqueIdentifier>{19081037-851E-0ECD-CE95-99EE3AEBDE54}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources\textures">
+      <UniqueIdentifier>{131D3555-FF00-F6AA-6861-F0FD5464E02C}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src">
       <UniqueIdentifier>{2DAB880B-99B4-887C-2230-9F7C8E38947C}</UniqueIdentifier>
     </Filter>
@@ -1143,6 +1182,9 @@
     <ClInclude Include="..\deps\stb_image.h">
       <Filter>deps</Filter>
     </ClInclude>
+    <ClInclude Include="..\deps\tiny_gltf.h">
+      <Filter>deps</Filter>
+    </ClInclude>
     <ClInclude Include="..\include\camera.h">
       <Filter>include</Filter>
     </ClInclude>
@@ -1211,5 +1253,183 @@
     <ClCompile Include="..\src\window.cpp">
       <Filter>src</Filter>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\resources\models\adamHead\LICENSE.txt">
+      <Filter>resources\models\adamHead</Filter>
+    </None>
+    <None Include="..\resources\models\adamHead\adamHead.bin">
+      <Filter>resources\models\adamHead</Filter>
+    </None>
+    <None Include="..\resources\models\adamHead\adamHead.gltf">
+      <Filter>resources\models\adamHead</Filter>
+    </None>
+    <None Include="..\resources\models\the_lighthouse\scene.bin">
+      <Filter>resources\models\the_lighthouse</Filter>
+    </None>
+    <None Include="..\resources\models\the_lighthouse\scene.gltf">
+      <Filter>resources\models\the_lighthouse</Filter>
+    </None>
+    <None Include="..\resources\shaders\frag.spv">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\shaders\test.frag">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\shaders\test.vert">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="..\resources\shaders\vert.spv">
+      <Filter>resources\shaders</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\AdamMonitor.jpg">
+      <Filter>resources\models\adamHead\Assets\Models\PBR\Adam\Textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Adam_Head_a.jpg">
+      <Filter>resources\models\adamHead\Assets\Models\PBR\Adam\Textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Adam_Head_n.jpg">
+      <Filter>resources\models\adamHead\Assets\Models\PBR\Adam\Textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Adam_Head_o.jpg">
+      <Filter>resources\models\adamHead\Assets\Models\PBR\Adam\Textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Adam_Head_sg.png">
+      <Filter>resources\models\adamHead\Assets\Models\PBR\Adam\Textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Adam_Torso_a.jpg">
+      <Filter>resources\models\adamHead\Assets\Models\PBR\Adam\Textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Adam_Torso_n.jpg">
+      <Filter>resources\models\adamHead\Assets\Models\PBR\Adam\Textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Adam_Torso_o.jpg">
+      <Filter>resources\models\adamHead\Assets\Models\PBR\Adam\Textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Adam_Torso_sg.png">
+      <Filter>resources\models\adamHead\Assets\Models\PBR\Adam\Textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Mask\Adam_mask_intact_a.jpg">
+      <Filter>resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Mask</Filter>
+    </Image>
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Mask\Adam_mask_intact_n.jpg">
+      <Filter>resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Mask</Filter>
+    </Image>
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Mask\Adam_mask_intact_o.jpg">
+      <Filter>resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Mask</Filter>
+    </Image>
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Mask\Adam_mask_intact_sg.png">
+      <Filter>resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Mask</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\22_-_Default_baseColor.png">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_134_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_138_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_139_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_143_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_144_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_185_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_186_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_188_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_210_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_211_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_213_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_214_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_215_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_216_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_220_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_221_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_263_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_286_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_287_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_288_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_289_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_312_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_319_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_342_baseColor.png">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_343_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_344_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_345_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_346_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_347_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_369_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_371_baseColor.png">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_371_emissive.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_8721_baseColor.jpg">
+      <Filter>resources\models\the_lighthouse\textures</Filter>
+    </Image>
+    <Image Include="..\resources\textures\default_placeholder.jpg">
+      <Filter>resources\textures</Filter>
+    </Image>
+    <Image Include="..\resources\textures\placeholder.jpg">
+      <Filter>resources\textures</Filter>
+    </Image>
   </ItemGroup>
 </Project>

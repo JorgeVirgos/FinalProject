@@ -3,6 +3,7 @@
 #include "constants.h"
 #include "hierarchy_context.h"
 #include "render_context.h"
+#include "geometry_primitives.h"
 #include <chrono>
 
 
@@ -18,21 +19,14 @@ int main(){
 
 	render_ctx.getCamera().calculateStaticMatrices(70.0f, 720, 640, 0.1f, 100.0f);
 	render_ctx.getCamera().changeSpeed(10.0f, 50.0f, 0.10f);
-	static auto startTime = std::chrono::high_resolution_clock::now();
-	auto current_time = startTime;
-	auto prev_time = startTime;
+
+
 
 	VKE::Entity& base_node = hier_ctx.getEntity();
 	auto trans = base_node.AddComponent<VKE::TransformComponent>(&hier_ctx);
 	auto rend = base_node.AddComponent<VKE::RenderComponent>(&hier_ctx);
 
-	VKE::InternalBuffer& vertex_internal_buffer = rend->getVertexBuffer();
-	vertex_internal_buffer.init(&render_ctx, sizeof(VKE::Vertex), indexed_square_vertices.size(), VKE::BufferType_Vertex);
-	vertex_internal_buffer.uploadData((void*)indexed_square_vertices.data());
-
-	VKE::InternalBuffer& index_internal_buffer = rend->getIndexBuffer();
-	index_internal_buffer.init(&render_ctx, sizeof(ushort16), indexed_square_indices.size(), VKE::BufferType_Index);
-	index_internal_buffer.uploadData((void*)indexed_square_indices.data());
+	VKE::GeoPrimitives::Quad(&render_ctx, rend);
 
 	VKE::Texture tex = render_ctx.getResource<VKE::Texture>();
 	VKE::InternalTexture& texture = render_ctx.getInternalRsc<VKE::Texture::internal_class>(tex);
@@ -42,17 +36,30 @@ int main(){
 	mat.init(&render_ctx);
 	mat.UpdateTextures(tex);
 
-	VKE::Entity& copy_node = hier_ctx.getEntity();
-	auto copy_trans = copy_node.AddComponent<VKE::TransformComponent>(&hier_ctx, *trans);
-	copy_node.AddComponent<VKE::RenderComponent>(&hier_ctx, *rend);
 
-	copy_trans->setPosition(0.0f, -0.5f, 0.0f);
-	copy_trans->setRotation(0.0f, 0.0f, 0.0f);
+	VKE::Entity& cube_node = hier_ctx.getEntity();
+	auto cube_trans = cube_node.AddComponent<VKE::TransformComponent>(&hier_ctx, *trans);
+	auto cube_rend = cube_node.AddComponent<VKE::RenderComponent>(&hier_ctx);
+
+	VKE::InternalMaterial& cube_mat = cube_rend->getMaterial();
+	cube_mat.init(&render_ctx);
+	cube_mat.UpdateTextures(tex);
+
+	VKE::GeoPrimitives::Sphere(&render_ctx, cube_rend);
+	cube_trans->setPosition(2.0f, 0.0f, -2.0f);
+	cube_trans->setRotation(0.0f, 0.0f, 0.0f);
+
+
+
+	static auto startTime = std::chrono::high_resolution_clock::now();
+	auto current_time = startTime;
+	auto prev_time = startTime;
 
 	while (!window.ShouldWindowClose()) {
 		window.PollEvents();
 		window.Update();
 		render_ctx.getCamera().keyboardInput(&window);
+		render_ctx.getCamera().mouseInput(&window, false);
 
 		prev_time = current_time;
 		current_time = std::chrono::high_resolution_clock::now();

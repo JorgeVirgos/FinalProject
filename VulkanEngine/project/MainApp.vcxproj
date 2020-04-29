@@ -474,6 +474,7 @@
     <ClInclude Include="..\deps\glm\vec4.hpp" />
     <ClInclude Include="..\deps\glm\vector_relational.hpp" />
     <ClInclude Include="..\deps\stb_image.h" />
+    <ClInclude Include="..\deps\tiny_gltf.h" />
     <ClInclude Include="..\include\camera.h" />
     <ClInclude Include="..\include\constants.h" />
     <ClInclude Include="..\include\geometry_primitives.h" />
@@ -498,6 +499,68 @@
     <ClCompile Include="..\src\main.cpp" />
     <ClCompile Include="..\src\render_context.cpp" />
     <ClCompile Include="..\src\window.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\resources\models\adamHead\LICENSE.txt" />
+    <None Include="..\resources\models\adamHead\adamHead.bin" />
+    <None Include="..\resources\models\adamHead\adamHead.gltf" />
+    <None Include="..\resources\models\the_lighthouse\scene.bin" />
+    <None Include="..\resources\models\the_lighthouse\scene.gltf" />
+    <None Include="..\resources\shaders\frag.spv" />
+    <None Include="..\resources\shaders\test.frag" />
+    <None Include="..\resources\shaders\test.vert" />
+    <None Include="..\resources\shaders\vert.spv" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\AdamMonitor.jpg" />
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Adam_Head_a.jpg" />
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Adam_Head_n.jpg" />
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Adam_Head_o.jpg" />
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Adam_Head_sg.png" />
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Adam_Torso_a.jpg" />
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Adam_Torso_n.jpg" />
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Adam_Torso_o.jpg" />
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Adam_Torso_sg.png" />
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Mask\Adam_mask_intact_a.jpg" />
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Mask\Adam_mask_intact_n.jpg" />
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Mask\Adam_mask_intact_o.jpg" />
+    <Image Include="..\resources\models\adamHead\Assets\Models\PBR\Adam\Textures\Mask\Adam_mask_intact_sg.png" />
+    <Image Include="..\resources\models\the_lighthouse\textures\22_-_Default_baseColor.png" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_134_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_138_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_139_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_143_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_144_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_185_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_186_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_188_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_210_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_211_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_213_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_214_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_215_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_216_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_220_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_221_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_263_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_286_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_287_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_288_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_289_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_312_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_319_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_342_baseColor.png" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_343_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_344_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_345_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_346_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_347_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_369_baseColor.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_371_baseColor.png" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_371_emissive.jpg" />
+    <Image Include="..\resources\models\the_lighthouse\textures\Material_8721_baseColor.jpg" />
+    <Image Include="..\resources\textures\default_placeholder.jpg" />
+    <Image Include="..\resources\textures\placeholder.jpg" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

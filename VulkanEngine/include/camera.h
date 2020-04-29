@@ -50,7 +50,7 @@ namespace VKE {
     void mouseMode(Window *win, bool mouse_control);
 
     /// \brief Calculates the static matrices, which DO NOT need to be calculated each frame.
-    void calculateStaticMatrices(int fov, float window_width, float window_height, float near_plane, float far_plane);
+    void calculateStaticMatrices(float32 fov, float32 window_width, float32 window_height, float32 near_plane, float32 far_plane);
     /// \brief Calculates the dynamic matrices, which NEED to be called each frame.
     void calculateDynamicMatrices();
 
@@ -61,8 +61,8 @@ namespace VKE {
 		glm::mat4 orthoMatrix();
 
   
-    float near_; ///< Visibility variable of the near projection plane. Unused, kept for external references
-    float far_; ///< Visibility variable of the far projection plane. Unused, kept for external references
+    float32 near_; ///< Visibility variable of the near projection plane. Unused, kept for external references
+    float32 far_; ///< Visibility variable of the far projection plane. Unused, kept for external references
 
   private:
 
@@ -77,8 +77,8 @@ namespace VKE {
     int32 key_x_rotation_; ///< Keyboard x rotation input
     int32 key_y_rotation_; ///< Keyboard y rotation input
 
-    //float64 mouse_x_rotation_; ///< Mouse x rotation input
-    //float64 mouse_y_rotation_; ///< Mouse y rotation input
+    float64 mouse_x_rotation_; ///< Mouse x rotation input
+    float64 mouse_y_rotation_; ///< Mouse y rotation input
 
     float32 speed_;       ///< Moving sspeed of the camera
     float32 rot_speed_;   ///< Rotational speed of the camera
@@ -96,8 +96,8 @@ namespace VKE {
 		glm::mat4 view_matrix_;             
 		glm::mat4 ortho_matrix_;            
 
-    //float64 previous_mouse_x_position_; 
-    //float64 previous_mouse_y_position_; 
+    float64 previous_mouse_x_position_; 
+    float64 previous_mouse_y_position_; 
 
     uint64 camera_control_key_;   ///< Enum variable describing the key that toggles the camera input.
     bool mouse_controlling_camera_; ///< Whether the input of the camera is activated or not.

@@ -51,7 +51,7 @@ void VKE::TransformComponent::setPosition(glm::vec3 pos) {
 	pos_ = pos;
 }
 void VKE::TransformComponent::setPosition(float x, float y, float z) {
-	pos_ = glm::vec3(x, z, y);
+	pos_ = glm::vec3(x, y, z);
 }
 
 void VKE::TransformComponent::setRotation(glm::vec3 euler_rot) {

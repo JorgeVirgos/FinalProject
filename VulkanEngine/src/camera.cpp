@@ -16,16 +16,16 @@ VKE::Camera::Camera() {
 	yaw_ = -90.0f;
 	pitch_ = 0.0f;
 
-	//previous_mouse_x_position_ = 0.0f;
-	//previous_mouse_y_position_ = 0.0f;
+	previous_mouse_x_position_ = 0.0f;
+	previous_mouse_y_position_ = 0.0f;
 
 	key_x_rotation_ = 0;
 	key_y_rotation_ = 0;
 
-	//mouse_x_rotation_ = 0.0f;
-	//mouse_y_rotation_ = 0.0f;
+	mouse_x_rotation_ = 0.0f;
+	mouse_y_rotation_ = 0.0f;
 
-	camera_control_key_ = GLFW_KEY_LEFT_SHIFT;
+	camera_control_key_ = GLFW_MOUSE_BUTTON_2;
 	mouse_controlling_camera_ = true;
 
 	updateVectors();
@@ -77,26 +77,26 @@ void VKE::Camera::keyboardInput(Window *win) {
 
 void VKE::Camera::mouseInput(Window *win, bool reset_mouse) {
 
-	if (win->GetKeyState(camera_control_key_)) {
+	if (win->GetMouseButtonState(camera_control_key_) == KeyState_Pressed) {
 		mouse_controlling_camera_ = true;
 	}
 	else {
 		mouse_controlling_camera_ = false;
 	}
 
-	if (win->GetKeyState(camera_control_key_) && reset_mouse) {
-		//win->setMousePosition(win->width() / 2, win->height() / 2);
+	if (win->IsMouseButtonDown(camera_control_key_) && reset_mouse) {
+		win->SetMousePosition(static_cast<float64>(win->width() / 2), static_cast<float64>(win->height() / 2));
 		//win->captureMouse(true);
 	}
 
-	if (win->GetKeyState(camera_control_key_) && reset_mouse) {
+	if (win->IsMouseButtonUp(camera_control_key_) && reset_mouse) {
 		//win->captureMouse(false);
 	}
 
 	if (!mouse_controlling_camera_) return;
 
 	float64 x_pos, y_pos;
-	//win->mousePosition(&x_pos, &y_pos);
+	win->getMousePosition(x_pos, y_pos);
 
 	glm::clamp<int32>(x_pos, 0, win->width());
 	glm::clamp<int32>(y_pos, 0, win->height());
@@ -107,40 +107,40 @@ void VKE::Camera::mouseInput(Window *win, bool reset_mouse) {
 		int32 scr_width_h = win->width() / 2;
 		int32 scr_height_h = win->height() / 2;
 
-		//mouse_x_rotation_ = x_pos - scr_width_h;
-		//mouse_y_rotation_ = y_pos - scr_height_h;
-		//win->setMousePosition(scr_width_h, scr_width_h);
+		mouse_x_rotation_ = x_pos - scr_width_h;
+		mouse_y_rotation_ = y_pos - scr_height_h;
+		win->SetMousePosition(static_cast<float64>(scr_width_h), static_cast<float64>(scr_width_h));
 
 	}
 	else {
 
-		if (win->GetKeyState(camera_control_key_)) {
-			//previous_mouse_x_position_ = x_pos;
-			//previous_mouse_y_position_ = y_pos;
+		if (win->IsMouseButtonDown(camera_control_key_)) {
+			previous_mouse_x_position_ = x_pos;
+			previous_mouse_y_position_ = y_pos;
 		}
 
-		//mouse_x_rotation_ = x_pos - previous_mouse_x_position_;
-		//mouse_y_rotation_ = y_pos - previous_mouse_y_position_;
-		//previous_mouse_x_position_ = x_pos;
-		//previous_mouse_y_position_ = y_pos;
+		mouse_x_rotation_ = x_pos - previous_mouse_x_position_;
+		mouse_y_rotation_ = y_pos - previous_mouse_y_position_;
+		previous_mouse_x_position_ = x_pos;
+		previous_mouse_y_position_ = y_pos;
 		//win->captureMouse(false);
 
 
-		//int32 new_x_pos = 0, new_y_pos = 0;
+		int32 new_x_pos = 0, new_y_pos = 0;
 
-		//if (previous_mouse_x_position_ >= win->width()) new_x_pos = 10;
-		//else if (previous_mouse_x_position_ <= 0) new_x_pos = win->width() - 10;
-		//else new_x_pos = previous_mouse_x_position_;
+		if (previous_mouse_x_position_ >= win->width()-1) new_x_pos = 10;
+		else if (previous_mouse_x_position_ <= 1) new_x_pos = win->width() - 10;
+		else new_x_pos = previous_mouse_x_position_;
 
-		//if (previous_mouse_y_position_ >= win->height()) new_y_pos = 10;
-		//else if (previous_mouse_y_position_ <= 0) new_y_pos = win->height() - 10;
-		//else new_y_pos = previous_mouse_y_position_;
+		if (previous_mouse_y_position_ >= win->height()-1) new_y_pos = 10;
+		else if (previous_mouse_y_position_ <= 1) new_y_pos = win->height() - 10;
+		else new_y_pos = previous_mouse_y_position_;
 
-		//if (new_x_pos != previous_mouse_x_position_ || new_y_pos != previous_mouse_y_position_) {
-		//	win->setMousePosition(new_x_pos, new_y_pos);
-		//	previous_mouse_x_position_ = new_x_pos;
-		//	previous_mouse_y_position_ = new_y_pos;
-		//}
+		if (new_x_pos != previous_mouse_x_position_ || new_y_pos != previous_mouse_y_position_) {
+			win->SetMousePosition(static_cast<float64>(new_x_pos), static_cast<float64>(new_y_pos));
+			previous_mouse_x_position_ = new_x_pos;
+			previous_mouse_y_position_ = new_y_pos;
+		}
 	}
 }
 
@@ -154,8 +154,8 @@ void VKE::Camera::resetInput() {
 	key_x_rotation_ = 0;
 	key_y_rotation_ = 0;
 
-	//mouse_x_rotation_ = 0.0f;
-	//mouse_y_rotation_ = 0.0f;
+	mouse_x_rotation_ = 0.0f;
+	mouse_y_rotation_ = 0.0f;
 }
 
 void VKE::Camera::logic(float32 delta_time) {
@@ -178,8 +178,8 @@ void VKE::Camera::logic(float32 delta_time) {
 		pitch_ += key_y_rotation_ * delta_time * rot_speed_;
 	}
 
-	//yaw_ += mouse_x_rotation_ * sensitivity_;
-	//pitch_ -= mouse_y_rotation_ * sensitivity_;
+	yaw_ += mouse_x_rotation_ * sensitivity_;
+	pitch_ -= mouse_y_rotation_ * sensitivity_;
 
 	// This fps camera clamps the y axis to evade gimball lock and camera flip
 	if (pitch_ > 89.0f)
@@ -187,7 +187,7 @@ void VKE::Camera::logic(float32 delta_time) {
 	if (pitch_ < -89.0f)
 		pitch_ = -89.0f;
 
-	if (key_x_rotation_ || key_y_rotation_ /*|| mouse_x_rotation_ || mouse_y_rotation_*/ ||
+	if (key_x_rotation_ || key_y_rotation_ || mouse_x_rotation_ || mouse_y_rotation_ ||
 		up_ || down_ || left_ || right_) {
 		updateVectors();
 	}
@@ -242,7 +242,7 @@ void VKE::Camera::updateVectors() {
 	camera_up_ = glm::normalize(glm::cross(camera_right_, camera_front_));
 }
 
-void VKE::Camera::calculateStaticMatrices(int fov, float window_width, float window_height, float near_plane, float far_plane) {
+void VKE::Camera::calculateStaticMatrices(float32 fov, float32 window_width, float32 window_height, float32 near_plane, float32 far_plane) {
 	
 	projection_matrix_ = getProjectionMatrix(fov, window_width, window_height, near_plane, far_plane);
 	projection_matrix_[1][1] *= -1.0f; // Reversal of Y axis, Vulkan axis

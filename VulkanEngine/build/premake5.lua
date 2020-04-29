@@ -64,7 +64,10 @@ files {
     "../deps/glm/detail/*.cpp",
     --
 
-    "../deps/stb_image.h"
+    "../deps/stb_image.h",
+    "../deps/tiny_gltf.h",
+
+    "../resources/**.*"
 }
 
 removefiles{
