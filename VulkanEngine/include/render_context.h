@@ -7,6 +7,7 @@
 #include "internal_buffer.h"
 #include "internal_texture.h"
 #include "internal_material.h"
+#include "camera.h"
 #include <map>
 #include <vector>
 #include <optional>
@@ -21,28 +22,6 @@ namespace VKE {
 	class Window;
 	class HierarchyContext;
 
-	//Debug functions
-	/*
-	VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-		const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
-
-		auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
-		if (func != nullptr) {
-			return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
-		}
-		else {
-			return VK_ERROR_EXTENSION_NOT_PRESENT;
-		}
-	}
-
-	void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
-		auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
-		if (func != nullptr) {
-			return func(instance, debugMessenger, pAllocator);
-		}
-	}
-	*/
-
 	class RenderContext {
 		struct QueueFamilyIndices;
 		struct SwapChainSupportDetails;
@@ -50,13 +29,19 @@ namespace VKE {
 		RenderContext();
 		~RenderContext();
 
+		VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
+			const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
+
+		void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
+
 		void init(Window* window, HierarchyContext* hier_context);
 
 		template<class T> T getResource();
 		template<class internalT,class T> internalT& getInternalRsc(T rsc);
 
-
 		void draw();
+
+		void recreateSwapChain();
 
 		VkDevice getDevice() { return device_; }
 		VkDescriptorSetAllocateInfo getDescriptorAllocationInfo(VKE::DescriptorType desc_type) { return desc_set_allocation_info_[desc_type]; }
@@ -64,22 +49,20 @@ namespace VKE {
 		VKE::InternalBuffer& getStagingBuffer() { return staging_buffer_; }
 		VKE::Texture getDefaultTexture() { return placeholder_texture_; }
 		VKE::InternalTexture& getDefaultInternalTexture() { return getInternalRsc<VKE::Texture::internal_class>(placeholder_texture_); }
-
-		std::vector<VkDescriptorSetLayout> getDescSetLayouts() { return descriptorSetLayouts; }
-		VkPhysicalDevice getPhysicalDevice() { return physicalDevice; }
-		uint32 findMemoryType(uint32 type_filter, VkMemoryPropertyFlags properties);
-		VkShaderModule VKE::RenderContext::createShaderModule(const std::vector<char8>& code);
-
-		void recreateSwapChain();
 		VkSwapchainKHR getSwapChain() { return swapChain; }
 		VkExtent2D getSwapChainExtent() { return swapChainExtent; }
 		VkViewport getScreenViewport() { return screen_viewport_; }
 		VkRect2D getScreenScissors() { return screen_scissors_; }
+		std::vector<VkDescriptorSetLayout> getDescSetLayouts() { return descriptorSetLayouts; }
+		VkPhysicalDevice getPhysicalDevice() { return physicalDevice; }
+
+		VKE::Camera& getCamera() { return camera_; }
+		void UpdateCameraViewMatrix(glm::mat4 mat) { camera_view_matrix_ = mat; }
+		void UpdateCameraProjectionMatrix(glm::mat4 mat) { camera_projection_matrix_ = mat; }
+
+		uint32 findMemoryType(uint32 type_filter, VkMemoryPropertyFlags properties);
+		VkShaderModule VKE::RenderContext::createShaderModule(const std::vector<char8>& code);
 		bool hasStencilComponent(VkFormat format) {return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;}
-
-
-
-
 		void uploadToStaging(void* data, size_t size);
 		void clearStaging();
 		void copyBuffer(const InternalBuffer& srcBuffer, const InternalBuffer& dstBuffer, size_t size);
@@ -120,7 +103,6 @@ namespace VKE {
 		void createSyncObjects();
 
 		//Internal methods called almost exclusively by the previous ones
-		void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
 		bool isDeviceSuitable(VkPhysicalDevice device);
 		QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 		SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
@@ -134,6 +116,7 @@ namespace VKE {
 		void recordCommands();
 		void recordNextFrameCommands(VkCommandBuffer command_buffer, VkFramebuffer spawchain_framebuffer);
 		VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+
 #ifdef _NDEBUG
 		const bool enableValidationLayers = false;
 #else
@@ -156,8 +139,7 @@ namespace VKE {
 		};
 
 		const std::vector<const char8*> validationLayers = {
-			"VK_LAYER_KHRONOS_validation",
-			"VK_LAYER_LUNARG_standard_validation"
+			"VK_LAYER_KHRONOS_validation"
 		};
 		const std::vector<const char8*> deviceExtensions = {
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -168,26 +150,25 @@ namespace VKE {
 		Window* window_;
 		HierarchyContext* hier_context_;
 
-		VkInstance instance_;
-		VkDevice device_;
+		VkInstance instance_ = VK_NULL_HANDLE;
+		VkDevice device_ = VK_NULL_HANDLE;
 
 		VkSwapchainKHR swapChain;
-		std::vector<VkImage> swapChainImages;
+		std::vector<InternalTexture> swapChainTextures;
+		std::vector<VkFramebuffer> swapChainFramebuffers;
+
 		VkFormat swapChainImageFormat;
 		VkExtent2D swapChainExtent;
 		VkViewport screen_viewport_;
 		VkRect2D screen_scissors_;
 
-		VkQueue graphicsQueue;
-		VkQueue presentQueue;
+		VkQueue graphicsQueue = VK_NULL_HANDLE;
+		VkQueue presentQueue = VK_NULL_HANDLE;
 
-		std::vector<VkImageView> swapChainImageViews;
-		std::vector<VkFramebuffer> swapChainFramebuffers;
+		VkRenderPass renderPass = VK_NULL_HANDLE;
 
-		VkRenderPass renderPass;
-
-		std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
 		VkDescriptorPool descriptorPool;
+		std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
 		VkDescriptorSetAllocateInfo desc_set_allocation_info_[VKE::DescriptorType_MAX] = {};
 
 		std::map<uint64, void*> resource_type_map;
@@ -211,8 +192,12 @@ namespace VKE {
 		std::vector<VkFence> imagesInFlight;
 
 		VkDebugUtilsMessengerEXT debugMessenger;
-		VkSurfaceKHR surface;
+		VkSurfaceKHR surface = VK_NULL_HANDLE;
 		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+
+		VKE::Camera camera_;
+		glm::mat4 camera_view_matrix_;
+		glm::mat4 camera_projection_matrix_;
 	};
 }
 

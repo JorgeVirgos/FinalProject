@@ -19,6 +19,7 @@ static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
 	if (hier_ctx != nullptr) {
 		hier_ctx->getRenderContext()->recreateSwapChain();
 		hier_ctx->UpdateManagers();
+		hier_ctx->getRenderContext()->getCamera().calculateStaticMatrices(70.0f, width, height, 0.1f, 100.0f);
 		hier_ctx->getRenderContext()->draw();
 	}
 }
@@ -35,6 +36,7 @@ void VKE::Window::initWindow(uint32 width, uint32 height, HierarchyContext* hier
 	window = glfwCreateWindow(win_width, win_height, "VKE Main Window", nullptr, nullptr);
 	glfwSetWindowUserPointer(window, hier_ctx);
 	glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+	glfwSetInputMode(window, GLFW_STICKY_KEYS, GLFW_TRUE);
 }
 
 bool VKE::Window::ShouldWindowClose() {
@@ -46,6 +48,14 @@ void VKE::Window::PollEvents() {
 
 void VKE::Window::Update() {
 	glfwGetWindowSize(window, &win_width, &win_height);
+
+	for (uint64 key_id = 32; key_id < GLFW_KEY_LAST; ++key_id) {
+		input_key_states_[key_id] = (KeyState)glfwGetKey(window, key_id);
+	}
+}
+
+VKE::KeyState VKE::Window::GetKeyState(uint64 input_key) {
+	return input_key_states_[input_key];
 }
 
 void VKE::Window::shutdownWindow() {

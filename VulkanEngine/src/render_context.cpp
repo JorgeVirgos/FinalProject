@@ -21,9 +21,6 @@
 #include "hierarchy_context.h"
 
 
-
-
-
 VKE::RenderContext::RenderContext() {
 
 }
@@ -32,6 +29,25 @@ VKE::RenderContext::~RenderContext() {
 	cleanup();
 }
 
+
+VkResult VKE::RenderContext::CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
+	const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
+
+	auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+	if (func != nullptr) {
+		return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+	}
+	else {
+		return VK_ERROR_EXTENSION_NOT_PRESENT;
+	}
+}
+
+void VKE::RenderContext::DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
+	auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+	if (func != nullptr) {
+		return func(instance, debugMessenger, pAllocator);
+	}
+}
 
 
 void VKE::RenderContext::init(VKE::Window *window, HierarchyContext* hier_context) {
@@ -84,7 +100,7 @@ void VKE::RenderContext::cleanup() {
 	vkDestroyDevice(device_, nullptr);
 
 	if (enableValidationLayers) {
-		//DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+		DestroyDebugUtilsMessengerEXT(instance_, debugMessenger, nullptr);
 	}
 
 	vkDestroySurfaceKHR(instance_, surface, nullptr);
@@ -102,10 +118,8 @@ void VKE::RenderContext::cleanupSwapChain() {
 	vkFreeCommandBuffers(device_, commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 	vkDestroyRenderPass(device_, renderPass, nullptr);
 
-
-	for (auto imageView : swapChainImageViews)
-		vkDestroyImageView(device_, imageView, nullptr);
-	
+	for (auto& tex : swapChainTextures)
+		vkDestroyImageView(device_, tex.image_view_, nullptr);
 
 	vkDestroySwapchainKHR(device_, swapChain, nullptr);
 }
@@ -219,16 +233,13 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VKE::RenderContext::debugCallback(
 	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 	void* pUserData) {
 
-	std::string sev;
-	switch (messageSeverity) {
-	case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: sev = "[VERBOSE] ";
-	case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT: sev = "[INFO] ";
-	case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: sev = "[WARNING] ";
-	case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: sev = "[ERROR] ";
-	default: sev = "[UNSPECIFIED] ";
-	}
-
-	std::cerr << sev << "validation layer: " << pCallbackData->pMessage << std::endl;
+	std::string sev = "[UNSPECIFIED] ";
+	if( VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT >= messageSeverity) sev = "[ERROR] ";
+	else if(VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT >= messageSeverity) sev = "[WARNING] ";
+	else if(VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT >= messageSeverity) sev = "[INFO] ";
+	else if(VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT >= messageSeverity) sev = "[VERBOSE] ";
+	
+	std::cerr << sev << "validation layer: "  << pCallbackData->pMessage << std::endl;
 
 	return VK_FALSE;
 }
@@ -242,11 +253,11 @@ void VKE::RenderContext::createInstance() {
 	//Optional, possible hardware optimization
 	VkApplicationInfo appInfo = {};
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	appInfo.pApplicationName = "Vulkan Triangle";
+	appInfo.pApplicationName = "Vulkan Engine";
 	appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
 	appInfo.pEngineName = "LightingInABottle";
 	appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-	appInfo.apiVersion = VK_API_VERSION_1_0;
+	appInfo.apiVersion = VK_API_VERSION_1_1;
 
 	//NOT optional, layers and extensions
 	VkInstanceCreateInfo createInfo = {};
@@ -262,12 +273,17 @@ void VKE::RenderContext::createInstance() {
 		createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
 		createInfo.ppEnabledLayerNames = validationLayers.data();
 
-		populateDebugMessengerCreateInfo(debugCreateInfo);
+		debugCreateInfo = {};
+		debugCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+		debugCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+		debugCreateInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+		debugCreateInfo.pfnUserCallback = debugCallback;
+		debugCreateInfo.pUserData = nullptr; // Optional
+
 		createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
 	}
 	else {
 		createInfo.enabledLayerCount = 0;
-
 		createInfo.pNext = nullptr;
 	}
 
@@ -306,22 +322,16 @@ void VKE::RenderContext::setupDebugMessenger() {
 	if (!enableValidationLayers) return;
 
 	VkDebugUtilsMessengerCreateInfoEXT createInfo;
-	populateDebugMessengerCreateInfo(createInfo);
-
-	//if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
-	//	throw std::runtime_error("failed to set up debug messenger!");
-	//}
-}
-
-void VKE::RenderContext::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
 	createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-	createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-		VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-	createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-		VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+	createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+	createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 	createInfo.pfnUserCallback = debugCallback;
-	createInfo.pUserData = nullptr; //Optional
+	createInfo.pUserData = nullptr; // Optional
+
+	if (CreateDebugUtilsMessengerEXT(instance_, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
+		throw std::runtime_error("failed to set up debug messenger!");
+	}
 }
 
 
@@ -530,8 +540,14 @@ void VKE::RenderContext::createSwapChain() {
 	}
 
 	vkGetSwapchainImagesKHR(device_, swapChain, &imageCount, nullptr);
+	std::vector<VkImage> swapChainImages;
 	swapChainImages.resize(imageCount);
 	vkGetSwapchainImagesKHR(device_, swapChain, &imageCount, swapChainImages.data());
+
+	swapChainTextures.resize(imageCount);
+	for (uint32 i = 0; i < imageCount; ++i) {
+		swapChainTextures[i].image_ = swapChainImages[i];
+	}
 
 	swapChainImageFormat = surfaceFormat.format;
 	swapChainExtent = extent;
@@ -600,12 +616,11 @@ VkExtent2D VKE::RenderContext::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& 
 
 
 void VKE::RenderContext::createImageViews() {
-	swapChainImageViews.resize(swapChainImages.size());
 
-	for (size_t i = 0; i < swapChainImages.size(); ++i) {
+	for (size_t i = 0; i < swapChainTextures.size(); ++i) {
 		VkImageViewCreateInfo createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		createInfo.image = swapChainImages[i];
+		createInfo.image = swapChainTextures[i].image_;
 
 		createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		createInfo.format = swapChainImageFormat;
@@ -621,7 +636,7 @@ void VKE::RenderContext::createImageViews() {
 		createInfo.subresourceRange.baseArrayLayer = 0;
 		createInfo.subresourceRange.layerCount = 1;
 
-		if (vkCreateImageView(device_, &createInfo, nullptr, &swapChainImageViews[i]) != VK_SUCCESS) {
+		if (vkCreateImageView(device_, &createInfo, nullptr, &swapChainTextures[i].image_view_) != VK_SUCCESS) {
 			throw::std::runtime_error("failed to create image views!");
 		}
 	}
@@ -782,11 +797,11 @@ void VKE::RenderContext::createRenderPass() {
 
 void VKE::RenderContext::createFramebuffers() {
 
-	swapChainFramebuffers.resize(swapChainImageViews.size());
+	swapChainFramebuffers.resize(swapChainTextures.size());
 
-	for (size_t i = 0; i < swapChainImageViews.size(); ++i) {
+	for (size_t i = 0; i < swapChainTextures.size(); ++i) {
 		VkImageView attachments[] = {
-		swapChainImageViews[i],
+		swapChainTextures[i].image_view_,
 		depth_image_.image_view_,
 		};
 
@@ -916,7 +931,7 @@ void VKE::RenderContext::createSyncObjects() {
 	imageAvailableSemaphore.resize(MAX_FRAMES_IN_FLIGHT);
 	renderFinishedSemaphore.resize(MAX_FRAMES_IN_FLIGHT);
 	inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-	imagesInFlight.resize(swapChainImages.size(), VK_NULL_HANDLE);
+	imagesInFlight.resize(swapChainTextures.size(), VK_NULL_HANDLE);
 
 	VkSemaphoreCreateInfo semaphoreInfo = {};
 	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -1323,9 +1338,12 @@ void  VKE::RenderContext::updateUniformBuffer(VKE::Buffer buffer, glm::mat4 mode
 	VKE::UniformBufferMatrices ubm;
 
 	ubm.model = model_mat;
-	ubm.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	ubm.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float32)swapChainExtent.height, 0.1f, 10.0f);
-	ubm.proj[1][1] *= -1.0f; // Reversal of Y axis
+	ubm.view =	camera_view_matrix_;
+	ubm.proj = camera_projection_matrix_;
+	//ubm.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	//ubm.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float32)swapChainExtent.height, 0.1f, 10.0f);
+	//ubm.proj[1][1] *= -1.0f; // Reversal of Y axis
+
 
 	getInternalRsc<VKE::Buffer::internal_class>(buffer).uploadData((void*)&ubm);
 }

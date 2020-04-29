@@ -1143,6 +1143,9 @@
     <ClInclude Include="..\deps\stb_image.h">
       <Filter>deps</Filter>
     </ClInclude>
+    <ClInclude Include="..\include\camera.h">
+      <Filter>include</Filter>
+    </ClInclude>
     <ClInclude Include="..\include\constants.h">
       <Filter>include</Filter>
     </ClInclude>
@@ -1177,6 +1180,9 @@
   <ItemGroup>
     <ClCompile Include="..\deps\glm\detail\glm.cpp">
       <Filter>deps\glm\detail</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\camera.cpp">
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="..\src\constants.cpp">
       <Filter>src</Filter>

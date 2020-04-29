@@ -16,7 +16,11 @@ namespace VKE{
 		DescriptorType_MAX
 	};
 
-	
+	enum KeyState {
+		KeyState_Down = 0,
+		KeyState_Pressed,
+		KeyState_Up,
+	};
 
 	enum BufferType {
 		BufferType_Vertex = 0,
@@ -99,10 +103,10 @@ namespace VKE{
 //};
 
 const std::vector<VKE::Vertex> indexed_square_vertices = {
-	{{-0.5f,-0.5f,0.0f},	{1.0f,0.0f,0.0f},	{1.0f, 0.0f}},
-	{{0.5f,-0.5f,0.0f},		{0.0f,1.0f,0.0f},	{0.0f, 0.0f}},
-	{{0.5f,0.5f,0.0f},		{0.0f,0.0f,1.0f},	{0.0f, 1.0f}},
-	{{-0.5f,0.5f,0.0f},		{1.0f,1.0f,1.0f},	{1.0f, 1.0f}}
+	{{-0.5f, -0.5f, +0.0f},	{1.0f,0.0f,0.0f},	{1.0f, 0.0f}},
+	{{+0.5f, -0.5f, +0.0f},	{0.0f,1.0f,0.0f},	{0.0f, 0.0f}},
+	{{+0.5f, +0.5f, +0.0f},	{0.0f,0.0f,1.0f},	{0.0f, 1.0f}},
+	{{-0.5f, +0.5f, +0.0f},	{1.0f,1.0f,1.0f},	{1.0f, 1.0f}}
 };
 
 const std::vector<ushort16> indexed_square_indices = {

@@ -87,8 +87,8 @@ project "MainApp"
     buildoptions { "/W4" }
 		linkoptions {"/SUBSYSTEM:CONSOLE", "/NODEFAULTLIB:library"}
 		prebuildcommands {"../build/compile_shaders.bat"}
-
-
+		debugenvs {"VK_ICD_FILENAMES=C:\\Windows\\System32\\DriverStore\\FileRepository\\nvhmi.inf_amd64_f5abf44622a9ff68\\nv-vk64.json"}
+            
     targetdir "../bin/%{cfg.buildcfg}"
     objdir "../build/obj/main"
 

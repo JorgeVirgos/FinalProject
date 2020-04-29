@@ -16,7 +16,11 @@ int main(){
 	window.initWindow(720, 640, &hier_ctx);
 	render_ctx.init(&window, &hier_ctx);
 
+	render_ctx.getCamera().calculateStaticMatrices(70.0f, 720, 640, 0.1f, 100.0f);
+	render_ctx.getCamera().changeSpeed(10.0f, 50.0f, 0.10f);
 	static auto startTime = std::chrono::high_resolution_clock::now();
+	auto current_time = startTime;
+	auto prev_time = startTime;
 
 	VKE::Entity& base_node = hier_ctx.getEntity();
 	auto trans = base_node.AddComponent<VKE::TransformComponent>(&hier_ctx);
@@ -43,14 +47,22 @@ int main(){
 	copy_node.AddComponent<VKE::RenderComponent>(&hier_ctx, *rend);
 
 	copy_trans->setPosition(0.0f, -0.5f, 0.0f);
+	copy_trans->setRotation(0.0f, 0.0f, 0.0f);
 
 	while (!window.ShouldWindowClose()) {
 		window.PollEvents();
 		window.Update();
+		render_ctx.getCamera().keyboardInput(&window);
 
-		auto currentTime = std::chrono::high_resolution_clock::now();
-		float32 time = std::chrono::duration<float32, std::chrono::seconds::period>(currentTime - startTime).count();
+		prev_time = current_time;
+		current_time = std::chrono::high_resolution_clock::now();
+		float32 time = std::chrono::duration<float32, std::chrono::seconds::period>(current_time - startTime).count();
 		trans->setRotation(0.0f, 0.0f, time);
+
+		float32 delta = std::chrono::duration<float32, std::chrono::seconds::period>(current_time - prev_time).count();
+		render_ctx.getCamera().logic(delta);
+		render_ctx.UpdateCameraViewMatrix(render_ctx.getCamera().viewMatrix());
+		render_ctx.UpdateCameraProjectionMatrix(render_ctx.getCamera().projectionMatrix());
 
 		hier_ctx.UpdateManagers();
 		render_ctx.draw();

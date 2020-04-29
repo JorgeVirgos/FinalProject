@@ -474,6 +474,7 @@
     <ClInclude Include="..\deps\glm\vec4.hpp" />
     <ClInclude Include="..\deps\glm\vector_relational.hpp" />
     <ClInclude Include="..\deps\stb_image.h" />
+    <ClInclude Include="..\include\camera.h" />
     <ClInclude Include="..\include\constants.h" />
     <ClInclude Include="..\include\geometry_primitives.h" />
     <ClInclude Include="..\include\hierarchy_context.h" />
@@ -487,6 +488,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\deps\glm\detail\glm.cpp" />
+    <ClCompile Include="..\src\camera.cpp" />
     <ClCompile Include="..\src\constants.cpp" />
     <ClCompile Include="..\src\geometry_primitives.cpp" />
     <ClCompile Include="..\src\hierarchy_context.cpp" />
