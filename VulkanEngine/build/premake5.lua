@@ -71,7 +71,8 @@ files {
 }
 
 removefiles{
-    "../src/triangle_main.cpp"
+    "../src/triangle_main.cpp",
+    "../resources/shaders/*.spv",
 }
 
 

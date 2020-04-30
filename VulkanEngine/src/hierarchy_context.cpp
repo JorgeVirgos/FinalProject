@@ -316,7 +316,7 @@ template<> void VKE::Manager<VKE::RenderComponent>::copyComponent(const RenderCo
 	dst_index.uploadData(nullptr);
 	dst_comp.render_ctx_->copyBuffer(src_index, dst_comp.getIndexBuffer(), src_index.getElementCount() * sizeof(ushort16));
 
-	dst_mat.init(dst_comp.render_ctx_);
+	dst_mat.init(dst_comp.render_ctx_, "", "", VKE::MaterialInfo());
 	dst_mat.UpdateTextures(src_mat.albedo_texture_);
 }
 

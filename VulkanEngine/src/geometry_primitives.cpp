@@ -166,10 +166,10 @@ void VKE::GeoPrimitives::Sphere(VKE::RenderContext* render_ctx, VKE::RenderCompo
 void VKE::GeoPrimitives::Quad(RenderContext* render_ctx, RenderComponent* rend) {
 
 	const std::vector<VKE::Vertex> quad_vertex_data = {
-	{{-0.5f, -0.5f, +0.0f},	{1.0f,0.0f,0.0f},	{1.0f, 0.0f}},
-	{{+0.5f, -0.5f, +0.0f},	{0.0f,1.0f,0.0f},	{0.0f, 0.0f}},
-	{{+0.5f, +0.5f, +0.0f},	{0.0f,0.0f,1.0f},	{0.0f, 1.0f}},
-	{{-0.5f, +0.5f, +0.0f},	{1.0f,1.0f,1.0f},	{1.0f, 1.0f}}
+	{{-1.0f, -1.0f, +0.0f},	{1.0f,0.0f,0.0f},	{1.0f, 0.0f}},
+	{{+1.0f, -1.0f, +0.0f},	{0.0f,1.0f,0.0f},	{0.0f, 0.0f}},
+	{{+1.0f, +1.0f, +0.0f},	{0.0f,0.0f,1.0f},	{0.0f, 1.0f}},
+	{{-1.0f, +1.0f, +0.0f},	{1.0f,1.0f,1.0f},	{1.0f, 1.0f}}
 	};
 
 	const std::vector<ushort16> quad_index_data = {
@@ -183,5 +183,52 @@ void VKE::GeoPrimitives::Quad(RenderContext* render_ctx, RenderComponent* rend) 
 	VKE::InternalBuffer& index_internal_buffer = rend->getIndexBuffer();
 	index_internal_buffer.init(render_ctx, sizeof(ushort16), quad_index_data.size(), VKE::BufferType_Index);
 	index_internal_buffer.uploadData((void*)quad_index_data.data());
+
+}
+
+void VKE::GeoPrimitives::Cubemap(VKE::RenderContext* render_ctx, VKE::RenderComponent* rend) {
+
+	std::vector<VKE::Vertex> cubemap_vertex_data = {
+		{ { -1.0f, -1.0f,  1.0f }, { 0.0f, 0.0f, 0.0f}, { 0.0f, 0.0f } },
+		{ {  1.0f, -1.0f,  1.0f }, { 0.0f, 0.0f, 0.0f}, { 1.0f, 0.0f } },
+		{ {  1.0f,  1.0f,  1.0f }, { 0.0f, 0.0f, 0.0f}, { 1.0f, 1.0f } },
+		{ { -1.0f,  1.0f,  1.0f }, { 0.0f, 0.0f, 0.0f}, { 0.0f, 1.0f } },
+
+		{ {  1.0f,  1.0f,  1.0f }, { 0.0f, 0.0f, 0.0f}, { 0.0f, 0.0f } },
+		{ {  1.0f,  1.0f, -1.0f }, { 0.0f, 0.0f, 0.0f}, { 1.0f, 0.0f } },
+		{ {  1.0f, -1.0f, -1.0f }, { 0.0f, 0.0f, 0.0f}, { 1.0f, 1.0f } },
+		{ {  1.0f, -1.0f,  1.0f }, { 0.0f, 0.0f, 0.0f}, { 0.0f, 1.0f } },
+
+		{ { -1.0f, -1.0f, -1.0f }, { 0.0f, 0.0f, 0.0f}, { 0.0f, 0.0f } },
+		{ {  1.0f, -1.0f, -1.0f }, { 0.0f, 0.0f, 0.0f}, { 1.0f, 0.0f } },
+		{ {  1.0f,  1.0f, -1.0f }, { 0.0f, 0.0f, 0.0f}, { 1.0f, 1.0f } },
+		{ { -1.0f,  1.0f, -1.0f }, { 0.0f, 0.0f, 0.0f}, { 0.0f, 1.0f } },
+
+		{ { -1.0f, -1.0f, -1.0f }, { 0.0f, 0.0f, 0.0f}, { 0.0f, 0.0f } },
+		{ { -1.0f, -1.0f,  1.0f }, { 0.0f, 0.0f, 0.0f}, { 1.0f, 0.0f } },
+		{ { -1.0f,  1.0f,  1.0f }, { 0.0f, 0.0f, 0.0f}, { 1.0f, 1.0f } },
+		{ { -1.0f,  1.0f, -1.0f }, { 0.0f, 0.0f, 0.0f}, { 0.0f, 1.0f } },
+
+		{ {  1.0f,  1.0f,  1.0f }, { 0.0f, 0.0f, 0.0f}, { 0.0f, 0.0f } },
+		{ { -1.0f,  1.0f,  1.0f }, { 0.0f, 0.0f, 0.0f}, { 1.0f, 0.0f } },
+		{ { -1.0f,  1.0f, -1.0f }, { 0.0f, 0.0f, 0.0f}, { 1.0f, 1.0f } },
+		{ {  1.0f,  1.0f, -1.0f }, { 0.0f, 0.0f, 0.0f}, { 0.0f, 1.0f } },
+
+		{ { -1.0f, -1.0f, -1.0f }, { 0.0f, 0.0f, 0.0f}, { 0.0f, 0.0f } },
+		{ {  1.0f, -1.0f, -1.0f }, { 0.0f, 0.0f, 0.0f}, { 1.0f, 0.0f } },
+		{ {  1.0f, -1.0f,  1.0f }, { 0.0f, 0.0f, 0.0f}, { 1.0f, 1.0f } },
+		{ { -1.0f, -1.0f,  1.0f }, { 0.0f, 0.0f, 0.0f}, { 0.0f, 1.0f } },
+	};
+	std::vector<ushort16> cubemap_index_data = {
+		0,1,2, 0,2,3, 4,5,6,  4,6,7, 8,9,10, 8,10,11, 12,13,14, 12,14,15, 16,17,18, 16,18,19, 20,21,22, 20,22,23
+	};
+
+	VKE::InternalBuffer& vertex_internal_buffer = rend->getVertexBuffer();
+	vertex_internal_buffer.init(render_ctx, sizeof(VKE::Vertex), cubemap_vertex_data.size(), VKE::BufferType_Vertex);
+	vertex_internal_buffer.uploadData((void*)cubemap_vertex_data.data());
+
+	VKE::InternalBuffer& index_internal_buffer = rend->getIndexBuffer();
+	index_internal_buffer.init(render_ctx, sizeof(ushort16), cubemap_index_data.size(), VKE::BufferType_Index);
+	index_internal_buffer.uploadData((void*)cubemap_index_data.data());
 
 }

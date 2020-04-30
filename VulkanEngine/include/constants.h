@@ -29,6 +29,23 @@ namespace VKE{
 		BufferType_MAX
 	};
 
+	enum TextureType {
+		TextureType_Sampler = 0,
+		TextureType_ColorAttachment,
+		TextureType_DepthAttachment,
+		TextureType_Cubemap,
+		TextureType_MAX,
+
+	};
+
+	struct MaterialInfo {
+		float dynamic_line_width_ = 1.0f;
+		VkViewport dynamic_viewport_ = {};
+		VkRect2D dynamic_scissors_ = {};
+		VkCullModeFlagBits cull_mode_ = VK_CULL_MODE_BACK_BIT;
+		uchar8 subpass_num_ = 0;
+	};
+
 	struct Vertex {
 		glm::vec3 pos;
 		glm::vec3 normal;

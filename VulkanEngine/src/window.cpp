@@ -19,8 +19,11 @@ void VKE::Window::shutdownWindow() {
 }
 
 static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
+
+	if (width == 0 || height == 0) return;
+
 	auto hier_ctx = reinterpret_cast<VKE::HierarchyContext*>(glfwGetWindowUserPointer(window));
-	if (hier_ctx != nullptr) {
+	if (hier_ctx != nullptr && hier_ctx->getRenderContext() != nullptr) {
 		hier_ctx->getRenderContext()->recreateSwapChain();
 		hier_ctx->UpdateManagers();
 		hier_ctx->getRenderContext()->getCamera().calculateStaticMatrices(70.0f, width, height, 0.1f, 100.0f);
@@ -37,7 +40,16 @@ void VKE::Window::initWindow(uint32 width, uint32 height, HierarchyContext* hier
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
+	GLFWmonitor *monitor = glfwGetPrimaryMonitor();
+	auto video_mode = glfwGetVideoMode(monitor);
+
 	window = glfwCreateWindow(win_width, win_height, "VKE Main Window", nullptr, nullptr);
+#ifdef _DEBUG
+	glfwSetWindowMonitor(window, nullptr, video_mode->width - win_width - 50, (video_mode->height / 2) - win_height/2, win_width, win_height, 60);
+#else
+	glfwSetWindowMonitor(window, nullptr, (video_mode->width / 2) - win_width / 2, (video_mode->height / 2) - win_height / 2, win_width, win_height, 60);
+#endif
+
 	glfwSetWindowUserPointer(window, hier_ctx);
 	glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 	glfwSetInputMode(window, GLFW_STICKY_KEYS, GLFW_TRUE);

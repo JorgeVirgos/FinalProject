@@ -32,16 +32,18 @@ namespace VKE {
 
 		void reset(RenderContext* render_ctx) override;
 
-		void init(RenderContext* render_ctx, float dynamic_line_width = 1.0f, VkViewport dynamic_viewport = {}, VkRect2D dynamic_scissors = {});
+		void init(RenderContext* render_ctx, std::string vert_name, std::string frag_name, MaterialInfo mat_info);
 		void UpdateDynamicStates(float dynamic_line_width_, VkViewport dynamic_viewport_, VkRect2D dynamic_scissors);
 
 		void UpdateTextures(Texture texture);
+		void UpdateTextures(InternalTexture& texture);
 
 	private:
 
-		float dynamic_line_width_;
-		VkViewport dynamic_viewport_;
-		VkRect2D dynamic_scissors_;
+		std::string vert_name_;
+		std::string frag_name_;
+
+		MaterialInfo mat_info_;
 
 		VkPipelineLayout pipeline_layout_;
 		VkPipeline graphical_pipeline_;

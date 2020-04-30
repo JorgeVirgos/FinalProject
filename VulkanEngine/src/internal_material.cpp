@@ -6,8 +6,7 @@ VKE::InternalMaterial::InternalMaterial() {
 	graphical_pipeline_ = VK_NULL_HANDLE;
 	textures_desc_set_ = VK_NULL_HANDLE;
 
-	dynamic_line_width_ = 1;
-	dynamic_viewport_ = {};
+	mat_info_ = VKE::MaterialInfo();
 
 }
 
@@ -27,37 +26,37 @@ void VKE::InternalMaterial::reset(RenderContext* render_ctx) {
 	graphical_pipeline_ = VK_NULL_HANDLE;
 	textures_desc_set_ = VK_NULL_HANDLE;
 
-	dynamic_line_width_ = 1;
-	dynamic_viewport_ = {};
+	mat_info_ = VKE::MaterialInfo();
 	has_been_initialised_ = false;
 	in_use_ = false;
 }
 
-void VKE::InternalMaterial::init(RenderContext* render_ctx, float dynamic_line_width, VkViewport dynamic_viewport, VkRect2D dynamic_scissors) {
+void VKE::InternalMaterial::init(RenderContext* render_ctx, std::string vert_name, std::string frag_name, MaterialInfo mat_info) {
 	
+	mat_info_ = mat_info;
 	render_ctx_ = render_ctx;
+	vert_name_ = "./../../resources/shaders/" + (vert_name == "" ? "test_vert.spv" : vert_name);
+	frag_name_ = "./../../resources/shaders/" + (frag_name == "" ? "test_frag.spv" : frag_name);
 
-	dynamic_line_width > 0.0f ? dynamic_line_width_ = dynamic_line_width : dynamic_line_width_ = 1.0f;
-
-	dynamic_viewport_ = dynamic_viewport;
-	if (dynamic_viewport_.width == 0 && dynamic_viewport_.height == 0) {
-		dynamic_viewport_.x = 0.0f;
-		dynamic_viewport_.y = 0.0f;
-		dynamic_viewport_.width = (float32)render_ctx_->getSwapChainExtent().width;
-		dynamic_viewport_.height = (float32)render_ctx_->getSwapChainExtent().height;
-		dynamic_viewport_.minDepth = 0.0f;
-		dynamic_viewport_.maxDepth = 1.0f;
+	if (mat_info_.dynamic_viewport_.width == 0 && mat_info_.dynamic_viewport_.height == 0) {
+		mat_info_.dynamic_viewport_.x = 0.0f;
+		mat_info_.dynamic_viewport_.y = 0.0f;
+		mat_info_.dynamic_viewport_.width = (float32)render_ctx_->getSwapChainExtent().width;
+		mat_info_.dynamic_viewport_.height = (float32)render_ctx_->getSwapChainExtent().height;
+		mat_info_.dynamic_viewport_.minDepth = 0.0f;
+		mat_info_.dynamic_viewport_.maxDepth = 1.0f;
 	}
 
-	dynamic_scissors_ = dynamic_scissors;
-	if (dynamic_scissors_.extent.height == 0 && dynamic_scissors_.extent.height == 0) {
-		dynamic_scissors_.offset = { 0, 0 };
-		dynamic_scissors_.extent = render_ctx_->getSwapChainExtent();
+	if (mat_info_.dynamic_scissors_.extent.height == 0 && mat_info_.dynamic_scissors_.extent.height == 0) {
+		mat_info_.dynamic_scissors_.offset = { 0, 0 };
+		mat_info_.dynamic_scissors_.extent = render_ctx_->getSwapChainExtent();
 	}
+
+	if (mat_info_.subpass_num_ > 1) mat_info_.subpass_num_ = 0;
 
 	
-	auto vertShaderCode = readFile("./../../resources/shaders/vert.spv");
-	auto fragShaderCode = readFile("./../../resources/shaders/frag.spv");
+	auto vertShaderCode = readFile(vert_name_);
+	auto fragShaderCode = readFile(frag_name_);
 
 	VkShaderModule vertShaderModule = render_ctx_->createShaderModule(vertShaderCode);
 	VkShaderModule fragShaderModule = render_ctx_->createShaderModule(fragShaderCode);
@@ -99,16 +98,16 @@ void VKE::InternalMaterial::init(RenderContext* render_ctx, float dynamic_line_w
 	VkPipelineViewportStateCreateInfo viewportState = {};
 	viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
 	viewportState.viewportCount = 1;
-	viewportState.pViewports = &dynamic_viewport_;
+	viewportState.pViewports = &mat_info_.dynamic_viewport_;
 	viewportState.scissorCount = 1;
-	viewportState.pScissors = &dynamic_scissors_;
+	viewportState.pScissors = &mat_info_.dynamic_scissors_;
 
 	VkPipelineRasterizationStateCreateInfo rasterizer = {};
 	rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	rasterizer.depthClampEnable = VK_FALSE;
 	rasterizer.rasterizerDiscardEnable = VK_FALSE;
 	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+	rasterizer.cullMode = mat_info_.cull_mode_;
 	rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	rasterizer.depthBiasEnable = VK_FALSE;
 	rasterizer.depthBiasConstantFactor = 0.0f; // Optional
@@ -128,7 +127,7 @@ void VKE::InternalMaterial::init(RenderContext* render_ctx, float dynamic_line_w
 	depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 	depthStencil.depthTestEnable = VK_TRUE;
 	depthStencil.depthWriteEnable = VK_TRUE;
-	depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+	depthStencil.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 	depthStencil.depthBoundsTestEnable = VK_FALSE;
 	depthStencil.minDepthBounds = 0.0f; // Optional
 	depthStencil.maxDepthBounds = 1.0f; // Optional
@@ -205,10 +204,14 @@ void VKE::InternalMaterial::init(RenderContext* render_ctx, float dynamic_line_w
 	pipelineInfo.pDynamicState = &dynamicState; // Optional
 
 	pipelineInfo.layout = pipeline_layout_;
-	pipelineInfo.renderPass = render_ctx_->getRenderPass();
-	pipelineInfo.subpass = 0;
+	pipelineInfo.subpass = mat_info_.subpass_num_;
 	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
 	pipelineInfo.basePipelineIndex = -1; // Optional
+
+	if(vert_name == "quadscreen_vert.spv")
+		pipelineInfo.renderPass = render_ctx_->getQuadRenderPass();
+	else
+		pipelineInfo.renderPass = render_ctx_->getRenderPass();
 
 	if (vkCreateGraphicsPipelines(render_ctx_->getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphical_pipeline_) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create graphics pipeline!");
@@ -225,18 +228,22 @@ void VKE::InternalMaterial::init(RenderContext* render_ctx, float dynamic_line_w
 
 	albedo_texture_ = render_ctx_->getDefaultTexture();
 	VKE::InternalTexture& default_texture = render_ctx_->getDefaultInternalTexture();
-	render_ctx_->UpdateDescriptor(textures_desc_set_, DescriptorType_Textures, (void*)&default_texture.image_view_);
+	render_ctx_->UpdateDescriptor(textures_desc_set_, DescriptorType_Textures, (void*)&default_texture);
 
 }
 
 void VKE::InternalMaterial::UpdateDynamicStates(float dynamic_line_width, VkViewport dynamic_viewport, VkRect2D dynamic_scissors) {
-	dynamic_line_width_ = dynamic_line_width;
-	dynamic_viewport_ = dynamic_viewport;
-	dynamic_scissors_ = dynamic_scissors;
+	mat_info_.dynamic_line_width_ = dynamic_line_width;
+	mat_info_.dynamic_viewport_ = dynamic_viewport;
+	mat_info_.dynamic_scissors_ = dynamic_scissors;
 }
 
 void VKE::InternalMaterial::UpdateTextures(Texture texture) {
 	albedo_texture_ = texture;
-	VkImageView image_view = render_ctx_->getInternalRsc<VKE::Texture::internal_class>(albedo_texture_).image_view_;
-	render_ctx_->UpdateDescriptor(textures_desc_set_, DescriptorType_Textures, (void*)&image_view);
+	VKE::InternalTexture& tex = render_ctx_->getInternalRsc<VKE::Texture::internal_class>(albedo_texture_);
+	render_ctx_->UpdateDescriptor(textures_desc_set_, DescriptorType_Textures, (void*)&tex);
+}
+
+void VKE::InternalMaterial::UpdateTextures(InternalTexture& texture) {
+	render_ctx_->UpdateDescriptor(textures_desc_set_, DescriptorType_Textures, (void*)&texture);
 }

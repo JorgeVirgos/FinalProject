@@ -21,6 +21,7 @@ namespace VKE {
 
 	class Window;
 	class HierarchyContext;
+	class Entity;
 
 	class RenderContext {
 		struct QueueFamilyIndices;
@@ -46,19 +47,19 @@ namespace VKE {
 		VkDevice getDevice() { return device_; }
 		VkDescriptorSetAllocateInfo getDescriptorAllocationInfo(VKE::DescriptorType desc_type) { return desc_set_allocation_info_[desc_type]; }
 		VkRenderPass getRenderPass() { return renderPass; }
+		VkRenderPass getQuadRenderPass() { return quadRenderPass; }
 		VKE::InternalBuffer& getStagingBuffer() { return staging_buffer_; }
 		VKE::Texture getDefaultTexture() { return placeholder_texture_; }
 		VKE::InternalTexture& getDefaultInternalTexture() { return getInternalRsc<VKE::Texture::internal_class>(placeholder_texture_); }
 		VkSwapchainKHR getSwapChain() { return swapChain; }
 		VkExtent2D getSwapChainExtent() { return swapChainExtent; }
+		VKE::InternalTexture& getCurrentSwapChainTexture() { return swapChainTextures[0]; }
 		VkViewport getScreenViewport() { return screen_viewport_; }
 		VkRect2D getScreenScissors() { return screen_scissors_; }
 		std::vector<VkDescriptorSetLayout> getDescSetLayouts() { return descriptorSetLayouts; }
 		VkPhysicalDevice getPhysicalDevice() { return physicalDevice; }
 
 		VKE::Camera& getCamera() { return camera_; }
-		void UpdateCameraViewMatrix(glm::mat4 mat) { camera_view_matrix_ = mat; }
-		void UpdateCameraProjectionMatrix(glm::mat4 mat) { camera_projection_matrix_ = mat; }
 
 		uint32 findMemoryType(uint32 type_filter, VkMemoryPropertyFlags properties);
 		VkShaderModule VKE::RenderContext::createShaderModule(const std::vector<char8>& code);
@@ -67,7 +68,7 @@ namespace VKE {
 		void clearStaging();
 		void copyBuffer(const InternalBuffer& srcBuffer, const InternalBuffer& dstBuffer, size_t size);
 		void copyBufferToImage(const InternalBuffer& srcBuffer, const InternalTexture& dstTexture, size_t height, size_t width);
-		void transitionImageLayout(VkImage& image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+		void transitionImageLayout(InternalTexture* tex, VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandBuffer optional_external_cmd_buf = VK_NULL_HANDLE);
 		void UpdateDescriptor(VkDescriptorSet desc, VKE::DescriptorType type, void* info_);
 		void updateUniformBuffer(Buffer buffer, glm::mat4 model_mat);
 
@@ -91,6 +92,7 @@ namespace VKE {
 		void createSwapChain();
 		void createImageViews();
 		void createDepthResources();
+		void createQuadscreenEntity();
 		void createRenderPass();
 		void createDescriptorSetlayout();
 		void createFramebuffers();
@@ -156,6 +158,7 @@ namespace VKE {
 		VkSwapchainKHR swapChain;
 		std::vector<InternalTexture> swapChainTextures;
 		std::vector<VkFramebuffer> swapChainFramebuffers;
+		VkFramebuffer sceneFramebuffer;
 
 		VkFormat swapChainImageFormat;
 		VkExtent2D swapChainExtent;
@@ -166,6 +169,7 @@ namespace VKE {
 		VkQueue presentQueue = VK_NULL_HANDLE;
 
 		VkRenderPass renderPass = VK_NULL_HANDLE;
+		VkRenderPass quadRenderPass = VK_NULL_HANDLE;
 
 		VkDescriptorPool descriptorPool;
 		std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
@@ -176,9 +180,11 @@ namespace VKE {
 		std::vector<InternalTexture> internal_textures_;
 		std::vector<InternalMaterial> internal_materials_;
 
+		Entity* quadscreen_entity_ = nullptr;
 		InternalBuffer staging_buffer_;
 		InternalTexture depth_image_;
-		const size_t staging_buffer_size_ = sizeof(uchar8) * 1024 * 1024 * 20;
+		InternalTexture offscreen_image_;
+		const size_t staging_buffer_size_ = sizeof(uchar8) * 1024 * 1024 * 100;
 		Texture placeholder_texture_;
 
 		VkCommandPool commandPool;

@@ -14,6 +14,8 @@ namespace VKE {
 		static void Cube(RenderContext* render_ctx, RenderComponent* rend);
 		static void Sphere(RenderContext* render_ctx, RenderComponent* rend);
 		static void Quad(RenderContext* render_ctx, RenderComponent* rend);
+		static void Cubemap(RenderContext* render_ctx, RenderComponent* rend);
+
 
 	private:
 		GeoPrimitives();

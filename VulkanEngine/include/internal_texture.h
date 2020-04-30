@@ -2,6 +2,7 @@
 #define __INTERNAL_TEXTURE_H__ 1
 
 #include "internal_base_resource.h"
+#include "platform_types.h"
 #include "constants.h"
 #include <string.h>
 
@@ -24,20 +25,24 @@ namespace VKE {
 		InternalTexture();
 		~InternalTexture();
 
-		void reset(RenderContext* render_ctx) override;
-
-		void init(RenderContext* render_ctx, std::string tex_name, VkImageType type, VkFormat format);
-		void init(RenderContext* render_ctx, void* data, uint32 width, uint32 height, VkImageType type, VkFormat format);
-
+		static void loadImageToMemory(std::vector<std::string> tex_names, std::vector<uchar8*>& tex_data, std::vector<int32>& widths, std::vector<int32>& heights, bool adjacent_memory = false);
 		static void resetSampler(RenderContext* render_ctx);
 		static VkSampler default_sampler_;
+
+		void reset(RenderContext* render_ctx) override;
+
+		void init(RenderContext* render_ctx, std::string tex_name, TextureType tex_type);
+		void init(RenderContext* render_ctx, void* data, uint32 width, uint32 height, TextureType tex_type);
+
 
 	private:
 
 		void load(uchar8* pixels);
 
-		static bool has_created_sample_;
+		static bool has_created_defailt_sample_;
+		static VkFormat depth_format_;
 
+		TextureType tex_type_;
 		VkImageType type_;
 		VkFormat format_;
 		
@@ -49,6 +54,9 @@ namespace VKE {
 		VkImage image_;
 		VkImageView image_view_;
 		VkDeviceMemory image_memory_;
+		VkSampler custom_sampler_;
+
+		bool has_created_custom_sampler_;
 
 		friend class RenderContext;
 		friend class InternalMaterial;

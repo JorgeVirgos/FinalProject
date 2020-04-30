@@ -19,6 +19,7 @@
 #include <chrono>
 #include "platform_types.h"
 #include "hierarchy_context.h"
+#include "geometry_primitives.h"
 
 
 VKE::RenderContext::RenderContext() {
@@ -69,6 +70,7 @@ void VKE::RenderContext::init(VKE::Window *window, HierarchyContext* hier_contex
 	createDescriptorSetlayout();
 	createDescriptorPool();
 	setUpResources();
+	createQuadscreenEntity();
 	//createBuffer();
 	//createUniformBuffers();
 	//createTexture();
@@ -114,12 +116,16 @@ void VKE::RenderContext::cleanupSwapChain() {
 
 	for (auto framebuffer : swapChainFramebuffers)
 		vkDestroyFramebuffer(device_, framebuffer, nullptr);
+	vkDestroyFramebuffer(device_, sceneFramebuffer, nullptr);
+
 
 	vkFreeCommandBuffers(device_, commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 	vkDestroyRenderPass(device_, renderPass, nullptr);
+	vkDestroyRenderPass(device_, quadRenderPass, nullptr);
 
 	for (auto& tex : swapChainTextures)
 		vkDestroyImageView(device_, tex.image_view_, nullptr);
+	offscreen_image_.reset(this);
 
 	vkDestroySwapchainKHR(device_, swapChain, nullptr);
 }
@@ -141,6 +147,7 @@ void VKE::RenderContext::recreateSwapChain() {
 	createSwapChain();
 	createImageViews();
 	createDepthResources();
+	quadscreen_entity_->GetFirstComponent<VKE::RenderComponent>()->getMaterial().UpdateTextures(offscreen_image_);
 	createRenderPass();
 	createFramebuffers();
 	createCommandBuffers();
@@ -513,7 +520,7 @@ void VKE::RenderContext::createSwapChain() {
 	createInfo.imageColorSpace = surfaceFormat.colorSpace;
 	createInfo.imageExtent = extent;
 	createInfo.imageArrayLayers = 1;
-	createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; //VK_IMAGE_USAGE_TRANSFER_DST_BIT used for post-processing images first
+	createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
 
 	QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 	uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
@@ -547,6 +554,7 @@ void VKE::RenderContext::createSwapChain() {
 	swapChainTextures.resize(imageCount);
 	for (uint32 i = 0; i < imageCount; ++i) {
 		swapChainTextures[i].image_ = swapChainImages[i];
+		swapChainTextures[i].format_ = surfaceFormat.format;
 	}
 
 	swapChainImageFormat = surfaceFormat.format;
@@ -649,10 +657,13 @@ void VKE::RenderContext::createDepthResources() {
 	candidates.push_back(VK_FORMAT_D32_SFLOAT_S8_UINT);
 	candidates.push_back(VK_FORMAT_D24_UNORM_S8_UINT);
 
-	VkFormat depth_format = findSupportedFormat(candidates, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+	VKE::InternalTexture::depth_format_ = findSupportedFormat(candidates, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 
-	depth_image_.init(this, nullptr, swapChainExtent.width, swapChainExtent.height, VK_IMAGE_TYPE_2D, depth_format);
-	transitionImageLayout(depth_image_.image_, depth_format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	depth_image_.init(this, nullptr, swapChainExtent.width, swapChainExtent.height, VKE::TextureType_DepthAttachment);
+	transitionImageLayout(&depth_image_, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+	offscreen_image_.init(this, nullptr, swapChainExtent.width, swapChainExtent.height, VKE::TextureType_ColorAttachment);
+	transitionImageLayout(&offscreen_image_, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 }
 
 VkFormat VKE::RenderContext::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
@@ -729,6 +740,7 @@ VkShaderModule VKE::RenderContext::createShaderModule(const std::vector<char8>& 
 
 
 void VKE::RenderContext::createRenderPass() {
+
 	VkAttachmentDescription colorAttachment = {};
 	colorAttachment.format = swapChainImageFormat;
 	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -737,18 +749,17 @@ void VKE::RenderContext::createRenderPass() {
 	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
 	VkAttachmentReference colorAttachmentRef = {};
 	colorAttachmentRef.attachment = 0;
 	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-
 	VkAttachmentDescription depthAttachment = {};
 	depthAttachment.format = depth_image_.format_;
 	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -758,37 +769,81 @@ void VKE::RenderContext::createRenderPass() {
 	depthAttachmentRef.attachment = 1;
 	depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
+	VkSubpassDescription offscreen_subpass = {};
+	offscreen_subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	offscreen_subpass.colorAttachmentCount = 1;
+	offscreen_subpass.pColorAttachments = &colorAttachmentRef;
+	offscreen_subpass.pDepthStencilAttachment = &depthAttachmentRef;
+	offscreen_subpass.pInputAttachments = nullptr;
 
-	VkSubpassDescription subpass = {};
-	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpass.colorAttachmentCount = 1;
-	subpass.pColorAttachments = &colorAttachmentRef;
-	subpass.pDepthStencilAttachment = &depthAttachmentRef;
-
-	VkSubpassDependency dependency = {};
-	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-	dependency.dstSubpass = 0;
-	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependency.srcAccessMask = 0;
-	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-	VkAttachmentDescription attachments[] = {
-		colorAttachment,
-		depthAttachment
+	VkSubpassDependency dependencies[2] = {
+		{}, {}
 	};
 
-	VkRenderPassCreateInfo renderPassInfo = {};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPassInfo.attachmentCount = 2;
-	renderPassInfo.pAttachments = attachments;
-	renderPassInfo.subpassCount = 1;
-	renderPassInfo.pSubpasses = &subpass;
-	renderPassInfo.dependencyCount = 1;
-	renderPassInfo.pDependencies = &dependency;
+	dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+	dependencies[0].dstSubpass = 0;
+	dependencies[0].srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependencies[0].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+	dependencies[1].srcSubpass = 0;
+	dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+	dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependencies[1].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	dependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+	VkAttachmentDescription attachments[] = {
+	colorAttachment,
+	depthAttachment,
+	};
+
+	VkRenderPassCreateInfo sceneRenderPassInfo = {};
+	sceneRenderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	sceneRenderPassInfo.attachmentCount = 2;
+	sceneRenderPassInfo.pAttachments = attachments;
+	sceneRenderPassInfo.subpassCount = 1;
+	sceneRenderPassInfo.pSubpasses = &offscreen_subpass;
+	sceneRenderPassInfo.dependencyCount = 2;
+	sceneRenderPassInfo.pDependencies = dependencies;
 
 
-	if (vkCreateRenderPass(device_, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
+	if (vkCreateRenderPass(device_, &sceneRenderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create render pass!");
+	}
+
+
+
+	VkAttachmentDescription postprocessColorAttachment = colorAttachment;
+	postprocessColorAttachment.format = swapChainImageFormat;
+	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	postprocessColorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+	VkAttachmentReference postprocessColorAttachmentRef = {};
+	postprocessColorAttachmentRef.attachment = 0;
+	postprocessColorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription postprocess_subpass = {};
+	postprocess_subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	postprocess_subpass.colorAttachmentCount = 1;
+	postprocess_subpass.pColorAttachments = &postprocessColorAttachmentRef;
+	postprocess_subpass.pDepthStencilAttachment = nullptr;
+	postprocess_subpass.pInputAttachments = nullptr;
+
+	VkRenderPassCreateInfo QuadRenderPassInfo = {};
+	QuadRenderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	QuadRenderPassInfo.attachmentCount = 1;
+	QuadRenderPassInfo.pAttachments = &postprocessColorAttachment;
+	QuadRenderPassInfo.subpassCount = 1;
+	QuadRenderPassInfo.pSubpasses = &postprocess_subpass;
+	QuadRenderPassInfo.dependencyCount = 1;
+	QuadRenderPassInfo.pDependencies = dependencies;
+
+
+	if (vkCreateRenderPass(device_, &QuadRenderPassInfo, nullptr, &quadRenderPass) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create render pass!");
 	}
 
@@ -797,19 +852,33 @@ void VKE::RenderContext::createRenderPass() {
 
 void VKE::RenderContext::createFramebuffers() {
 
-	swapChainFramebuffers.resize(swapChainTextures.size());
-
-	for (size_t i = 0; i < swapChainTextures.size(); ++i) {
-		VkImageView attachments[] = {
-		swapChainTextures[i].image_view_,
+	VkImageView attachments[] = {
+		offscreen_image_.image_view_,
 		depth_image_.image_view_,
-		};
+	};
+
+	VkFramebufferCreateInfo framebufferInfo = {};
+	framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	framebufferInfo.renderPass = renderPass;
+	framebufferInfo.attachmentCount = 2;
+	framebufferInfo.pAttachments = attachments;
+	framebufferInfo.width = swapChainExtent.width;
+	framebufferInfo.height = swapChainExtent.height;
+	framebufferInfo.layers = 1;
+
+	if (vkCreateFramebuffer(device_, &framebufferInfo, nullptr, &sceneFramebuffer) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create framebuffer!");
+	}
+
+
+	swapChainFramebuffers.resize(swapChainTextures.size());
+	for (size_t i = 0; i < swapChainTextures.size(); ++i) {
 
 		VkFramebufferCreateInfo framebufferInfo = {};
 		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		framebufferInfo.renderPass = renderPass;
-		framebufferInfo.attachmentCount = 2;
-		framebufferInfo.pAttachments = attachments;
+		framebufferInfo.renderPass = quadRenderPass;
+		framebufferInfo.attachmentCount = 1;
+		framebufferInfo.pAttachments = &swapChainTextures[i].image_view_;
 		framebufferInfo.width = swapChainExtent.width;
 		framebufferInfo.height = swapChainExtent.height;
 		framebufferInfo.layers = 1;
@@ -832,6 +901,24 @@ void VKE::RenderContext::createCommandPool() {
 	if (vkCreateCommandPool(device_, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create command pool!");
 	}
+
+}
+
+void VKE::RenderContext::createQuadscreenEntity()
+{
+	quadscreen_entity_ = &(hier_context_->getEntity());
+	auto quadscreen_trans = quadscreen_entity_->AddComponent<VKE::TransformComponent>(hier_context_);
+	auto quadscreen_rend = quadscreen_entity_->AddComponent<VKE::RenderComponent>(hier_context_);
+	
+	quadscreen_trans->init(this);
+	VKE::GeoPrimitives::Quad(this, quadscreen_rend);
+
+	VKE::InternalMaterial& quadscreen_mat = quadscreen_rend->getMaterial();
+	VKE::MaterialInfo screen_quad_mat_info;
+	screen_quad_mat_info.cull_mode_ = VK_CULL_MODE_NONE;
+	screen_quad_mat_info.subpass_num_ = 0;
+	quadscreen_mat.init(this, "quadscreen_vert.spv", "quadscreen_frag.spv", screen_quad_mat_info);
+	quadscreen_mat.UpdateTextures(offscreen_image_);
 
 }
 
@@ -876,7 +963,7 @@ void VKE::RenderContext::createDefaultTexture() {
 	placeholder_texture_ = getResource<VKE::Texture>();
 	
 	VKE::InternalTexture& tex = getInternalRsc<VKE::Texture::internal_class>(placeholder_texture_);
-	tex.init(this, "./../../resources/textures/default_placeholder.jpg", VK_IMAGE_TYPE_2D, VK_FORMAT_R8G8B8A8_SRGB);
+	tex.init(this, "./../../resources/textures/default_placeholder.jpg", TextureType_Sampler);
 }
 
 
@@ -1015,7 +1102,7 @@ void VKE::RenderContext::recordNextFrameCommands(VkCommandBuffer command_buffer,
 	std::vector<std::pair<VKE::TransformComponent*, VKE::RenderComponent*>> valid_entities;
 
 	for (VKE::Entity& entity : hier_context_->entities_) {
-		if (!entity.isInUse()) continue;
+		if (!entity.isInUse() || &entity == quadscreen_entity_) continue;
 		std::vector<VKE::TransformComponent*> transforms = entity.GetComponents<VKE::TransformComponent>();
 		std::vector<VKE::RenderComponent*> renderers = entity.GetComponents<VKE::RenderComponent>();
 
@@ -1036,20 +1123,33 @@ void VKE::RenderContext::recordNextFrameCommands(VkCommandBuffer command_buffer,
 		throw std::runtime_error("failed to begin recording command buffer!");
 	}
 
-	VkClearValue clear_values[2];
+	VkClearValue clear_values[3];
 	clear_values[0].color = { 0.3f,0.25f,0.85f,1.0f };	//Color
 	clear_values[1].depthStencil = { 1.0, 0 };							//Depth
+	clear_values[2].color = { 1.0f,0.5f,0.5f,1.0f };	//offscreen color
 
 	VkRenderPassBeginInfo renderPassInfo = {};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassInfo.renderPass = renderPass;
-	renderPassInfo.framebuffer = spawchain_framebuffer;
+	renderPassInfo.framebuffer = sceneFramebuffer;
 	renderPassInfo.renderArea.offset = { 0, 0 };
 	renderPassInfo.renderArea.extent = swapChainExtent;
 	renderPassInfo.clearValueCount = 2;
 	renderPassInfo.pClearValues = clear_values;
 
+	VkRenderPassBeginInfo quadRenderPassInfo = {};
+	quadRenderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	quadRenderPassInfo.renderPass = quadRenderPass;
+	quadRenderPassInfo.framebuffer = spawchain_framebuffer;
+	quadRenderPassInfo.renderArea.offset = { 0, 0 };
+	quadRenderPassInfo.renderArea.extent = swapChainExtent;
+	quadRenderPassInfo.clearValueCount = 1;
+	quadRenderPassInfo.pClearValues = &clear_values[2];
+
 	VkDeviceSize offsets[] = { 0 };
+
+
+
 
 	vkCmdBeginRenderPass(command_buffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -1060,9 +1160,9 @@ void VKE::RenderContext::recordNextFrameCommands(VkCommandBuffer command_buffer,
 		VKE::InternalBuffer& index_buf = entry.second->getIndexBuffer();
 		VKE::InternalMaterial& mat = entry.second->getMaterial();
 
-		vkCmdSetLineWidth(command_buffer, static_cast<float>(mat.dynamic_line_width_));
-		vkCmdSetViewport(command_buffer, 0, 1, &mat.dynamic_viewport_);
-		vkCmdSetScissor(command_buffer, 0, 1, &mat.dynamic_scissors_);
+		vkCmdSetLineWidth(command_buffer, static_cast<float>(mat.mat_info_.dynamic_line_width_));
+		vkCmdSetViewport(command_buffer, 0, 1, &mat.mat_info_.dynamic_viewport_);
+		vkCmdSetScissor(command_buffer, 0, 1, &mat.mat_info_.dynamic_scissors_);
 
 		vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mat.graphical_pipeline_);
 
@@ -1075,6 +1175,34 @@ void VKE::RenderContext::recordNextFrameCommands(VkCommandBuffer command_buffer,
 		vkCmdDrawIndexed(command_buffer, index_buf.getElementCount(), 1, 0, 0, 0);
 	}
 
+	vkCmdEndRenderPass(command_buffer);
+	vkCmdBeginRenderPass(command_buffer, &quadRenderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+	//transitionImageLayout(&offscreen_image_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, command_buffer);
+	//vkCmdNextSubpass(command_buffer, VK_SUBPASS_CONTENTS_INLINE);
+
+	if (quadscreen_entity_ != nullptr) {
+
+		VKE::InternalBuffer& uniform_buffer = quadscreen_entity_->GetFirstComponent<VKE::TransformComponent>()->getUBMBuffer();
+		if (uniform_buffer.uniform_desc_set_ != VK_NULL_HANDLE) {	//First frame, before TransformComponent->Update()
+
+			VKE::InternalBuffer& vertex_buf = quadscreen_entity_->GetFirstComponent<VKE::RenderComponent>()->getVertexBuffer();
+			VKE::InternalBuffer& index_buf = quadscreen_entity_->GetFirstComponent<VKE::RenderComponent>()->getIndexBuffer();
+
+			VKE::InternalMaterial& mat = quadscreen_entity_->GetFirstComponent<VKE::RenderComponent>()->getMaterial();
+
+			vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mat.graphical_pipeline_);
+
+			vkCmdBindVertexBuffers(command_buffer, 0, 1, &vertex_buf.buffer_, offsets);
+			vkCmdBindIndexBuffer(command_buffer, index_buf.buffer_, 0, VK_INDEX_TYPE_UINT16);
+
+			vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mat.pipeline_layout_, VKE::DescriptorType_Matrices, 1, &uniform_buffer.uniform_desc_set_, 0, nullptr);
+			vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mat.pipeline_layout_, VKE::DescriptorType_Textures, 1, &mat.textures_desc_set_, 0, nullptr);
+
+			vkCmdDrawIndexed(command_buffer, index_buf.getElementCount(), 1, 0, 0, 0);
+		}
+
+	}
 	vkCmdEndRenderPass(command_buffer);
 
 	if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS) {
@@ -1197,31 +1325,47 @@ void VKE::RenderContext::copyBufferToImage(const InternalBuffer& srcBuffer, cons
 
 	VkCommandBuffer copyToImageCommandBuffer = beginCommands(commandPool, device_);
 
-	VkBufferImageCopy region = {};
-	region.bufferOffset = 0;
-	region.bufferRowLength = 0;
-	region.bufferImageHeight = 0;
+	std::vector<VkBufferImageCopy> regions;
 
-	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	region.imageSubresource.mipLevel = 0;
-	region.imageSubresource.baseArrayLayer = 0;
-	region.imageSubresource.layerCount = 1;
+	VkBufferImageCopy def_reg = {};
+	def_reg.bufferOffset = 0;
+	def_reg.bufferRowLength = 0;
+	def_reg.bufferImageHeight = 0;
+	def_reg.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	def_reg.imageSubresource.mipLevel = 0;
+	def_reg.imageSubresource.baseArrayLayer = 0;
+	def_reg.imageSubresource.layerCount = 1;
+	def_reg.imageOffset = { 0, 0, 0 };
+	def_reg.imageExtent = {
+		static_cast<uint32>(width),
+		static_cast<uint32>(height),
+		1 };
+	if (dstTexture.tex_type_ != TextureType_Cubemap) {
+		regions.push_back(def_reg);
+	}
+	else {
+		uint64 data_offset = 0;
+		for (uint32 i = 0; i < 6; ++i) {	
+			def_reg.imageSubresource.baseArrayLayer = i;
+			def_reg.bufferOffset = data_offset;
+			data_offset += sizeof(uchar8) * width * height * 4;
+			regions.push_back(def_reg);
+		}
+	}
 
-	region.imageOffset = { 0, 0, 0 };
-	region.imageExtent = {
-			static_cast<uint32>(width),
-			static_cast<uint32>(height),
-			1
-	};
-
-	vkCmdCopyBufferToImage(copyToImageCommandBuffer, srcBuffer.buffer_, dstTexture.image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+	vkCmdCopyBufferToImage(copyToImageCommandBuffer, srcBuffer.buffer_, dstTexture.image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, regions.size(), regions.data());
 
 	endCommands(commandPool, device_, graphicsQueue, copyToImageCommandBuffer);
 }
 
-void VKE::RenderContext::transitionImageLayout(VkImage& image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
+void VKE::RenderContext::transitionImageLayout(InternalTexture* tex, VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandBuffer optional_external_cmd_buf) {
 
-	VkCommandBuffer layoutBuffer = beginCommands(commandPool, device_);
+	VkCommandBuffer layoutBuffer;
+
+	if (optional_external_cmd_buf == VK_NULL_HANDLE)
+		layoutBuffer = beginCommands(commandPool, device_);
+	else
+		layoutBuffer = optional_external_cmd_buf;
 
 	VkImageMemoryBarrier barrier = {};
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -1230,7 +1374,7 @@ void VKE::RenderContext::transitionImageLayout(VkImage& image, VkFormat format, 
 	barrier.newLayout = newLayout;
 	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barrier.image = image;
+	barrier.image = tex->image_;
 	barrier.subresourceRange.baseMipLevel = 0;
 	barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
 	barrier.subresourceRange.baseArrayLayer = 0;
@@ -1238,7 +1382,7 @@ void VKE::RenderContext::transitionImageLayout(VkImage& image, VkFormat format, 
 
 	if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
 		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-		if(hasStencilComponent(format))
+		if(hasStencilComponent(VKE::InternalTexture::depth_format_))
 			barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 	}
 	else {
@@ -1249,6 +1393,10 @@ void VKE::RenderContext::transitionImageLayout(VkImage& image, VkFormat format, 
 	VkPipelineStageFlags destinationStage;
 
 	switch (oldLayout) {
+	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+		sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+		break;
 	case VK_IMAGE_LAYOUT_UNDEFINED:
 		barrier.srcAccessMask = 0;
 		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
@@ -1274,21 +1422,29 @@ void VKE::RenderContext::transitionImageLayout(VkImage& image, VkFormat format, 
 		barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 		destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 		break;
+	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+		break;
 	default:
 		throw std::invalid_argument("unsupported dst image layout type transition");
 	}
 
+	VkDependencyFlags dependency_flags = {};
+	if (optional_external_cmd_buf != VK_NULL_HANDLE)
+		dependency_flags |= VK_DEPENDENCY_BY_REGION_BIT;
 
 	vkCmdPipelineBarrier(
 		layoutBuffer,
 		sourceStage, destinationStage,
-		0,
+		dependency_flags,
 		0, nullptr,
 		0, nullptr,
 		1, &barrier
 	);
 
-	endCommands(commandPool, device_, graphicsQueue, layoutBuffer);
+	if(optional_external_cmd_buf == VK_NULL_HANDLE)
+		endCommands(commandPool, device_, graphicsQueue, layoutBuffer);
 
 }
 
@@ -1299,11 +1455,20 @@ void VKE::RenderContext::UpdateDescriptor(VkDescriptorSet desc, VKE::DescriptorT
 
 	if(type == VKE::DescriptorType_Textures){
 
-		VkImageView image_view = *((VkImageView*)info_);
+		VKE::InternalTexture* internal_tex = ((VKE::InternalTexture*)info_);
 		VkDescriptorImageInfo imageInfo = {};
-		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		imageInfo.imageView = image_view;
-		imageInfo.sampler = VKE::InternalTexture::default_sampler_;
+
+		//if(internal_tex->tex_type_ == TextureType_ColorAttachment)
+		//	imageInfo.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		//else
+			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+		imageInfo.imageView = internal_tex->image_view_;
+
+		if(internal_tex->has_created_custom_sampler_)
+			imageInfo.sampler = internal_tex->custom_sampler_;
+		else
+			imageInfo.sampler = VKE::InternalTexture::default_sampler_;
 
 		desc_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		desc_write.dstSet = desc;
@@ -1338,12 +1503,12 @@ void  VKE::RenderContext::updateUniformBuffer(VKE::Buffer buffer, glm::mat4 mode
 	VKE::UniformBufferMatrices ubm;
 
 	ubm.model = model_mat;
-	ubm.view =	camera_view_matrix_;
-	ubm.proj = camera_projection_matrix_;
+	ubm.view =	camera_.viewMatrix();
+	ubm.proj = camera_.projectionMatrix();
+
 	//ubm.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	//ubm.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float32)swapChainExtent.height, 0.1f, 10.0f);
 	//ubm.proj[1][1] *= -1.0f; // Reversal of Y axis
-
 
 	getInternalRsc<VKE::Buffer::internal_class>(buffer).uploadData((void*)&ubm);
 }
