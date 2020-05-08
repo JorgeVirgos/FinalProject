@@ -2,6 +2,7 @@
 #extension GL_ARB_separate_shader_objects : enable
 
 layout(binding = 0, set = 1) uniform sampler2D texSampler;
+layout(binding = 1, set = 1) uniform sampler2D shadowSampler;
 
 layout(location = 1) in vec2 TexCoords;
 
@@ -10,8 +11,8 @@ layout(location = 0) out vec4 FragColor;
 float LinearizeDepth(in vec2 uv)
 {
     float zNear = 0.1;    // TODO: Replace by the zNear of your perspective projection
-    float zFar  = 100; // TODO: Replace by the zFar  of your perspective projection
-    float depth = texture(texSampler, TexCoords).x;
+    float zFar  = 1000.0; // TODO: Replace by the zFar  of your perspective projection
+    float depth = texture(shadowSampler, TexCoords).x;
     return (2.0 * zNear) / (zFar + zNear - depth * (zFar - zNear));
 }
 
@@ -25,4 +26,5 @@ void main(){
 	//FragColor = vec4(hdrColor,1.0);
 
 	FragColor = texture(texSampler, TexCoords);
+	//FragColor = vec4(LinearizeDepth(TexCoords).xxx, 1.0);
 }

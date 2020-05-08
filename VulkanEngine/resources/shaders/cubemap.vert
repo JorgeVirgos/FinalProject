@@ -3,6 +3,7 @@
 
 layout(binding = 0, set = 0) uniform UniformBufferMatrices {
     mat4 model;
+		mat4 model_inv;
     mat4 view;
     mat4 proj;
 } ubm;
@@ -12,10 +13,12 @@ layout(location = 1) in vec3 inNormal;
 layout(location = 2) in vec2 inUV;
 
 layout(location = 1) out vec3 vert_texcoord;
+layout(location = 2) out mat4 proj;
 
 
 void main() {
 		vert_texcoord = inPosition;
+		proj = ubm.proj;
 
 		//vec4 pos = vec4(inPosition, 0.0f);
 		//pos = pos * ubm.view;

@@ -11,6 +11,9 @@ C:/VulkanSDK/1.1.121.2/Bin/glslc.exe ./../../resources/shaders/cubemap.frag -o .
 
 C:/VulkanSDK/1.1.121.2/Bin/glslc.exe ./../../resources/shaders/quadscreen.vert -o ./../../resources/shaders/quadscreen_vert.spv
 C:/VulkanSDK/1.1.121.2/Bin/glslc.exe ./../../resources/shaders/quadscreen.frag -o ./../../resources/shaders/quadscreen_frag.spv
+
+C:/VulkanSDK/1.1.121.2/Bin/glslc.exe ./../../resources/shaders/shadowmap.vert -o ./../../resources/shaders/shadowmap_vert.spv
+C:/VulkanSDK/1.1.121.2/Bin/glslc.exe ./../../resources/shaders/shadowmap.frag -o ./../../resources/shaders/shadowmap_frag.spv
 echo Done.
 echo.
 @echo on

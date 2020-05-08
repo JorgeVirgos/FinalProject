@@ -18,7 +18,10 @@ namespace VKE {
 	struct Material : public BaseHandle {
 		Material() {};
 		~Material() {};
+
 		typedef InternalMaterial internal_class;
+		InternalMaterial& getInternalRsc(RenderContext*);
+
 
 	private:
 		Material(uint32 id) { id_ = id; }
@@ -32,7 +35,8 @@ namespace VKE {
 
 		void reset(RenderContext* render_ctx) override;
 
-		void init(RenderContext* render_ctx, std::string vert_name, std::string frag_name, MaterialInfo mat_info);
+		void init(RenderContext* render_ctx, MaterialInfo mat_info);
+		void recreatePipeline(MaterialInfo* mat_info = nullptr);
 		void UpdateDynamicStates(float dynamic_line_width_, VkViewport dynamic_viewport_, VkRect2D dynamic_scissors);
 
 		void UpdateTextures(Texture texture);
@@ -40,15 +44,32 @@ namespace VKE {
 
 	private:
 
-		std::string vert_name_;
-		std::string frag_name_;
-
 		MaterialInfo mat_info_;
 
 		VkPipelineLayout pipeline_layout_;
 		VkPipeline graphical_pipeline_;
 
+		VkGraphicsPipelineCreateInfo pipeline_creation_info_;
+		VkPipelineVertexInputStateCreateInfo vertexInputInfo;
+		VkPipelineInputAssemblyStateCreateInfo inputAssembly;
+		VkPipelineViewportStateCreateInfo viewportState;
+		VkPipelineRasterizationStateCreateInfo rasterizer;
+		VkPipelineMultisampleStateCreateInfo multisampling;
+		VkPipelineDepthStencilStateCreateInfo depthStencil;
+		VkPipelineColorBlendAttachmentState colorBlendAttachment;
+		VkPipelineColorBlendStateCreateInfo colorBlending;
+		VkPipelineDynamicStateCreateInfo dynamicState;
+		VkDynamicState dynamicStates[3] = {
+			VK_DYNAMIC_STATE_LINE_WIDTH,
+			VK_DYNAMIC_STATE_VIEWPORT,
+			VK_DYNAMIC_STATE_SCISSOR,
+		};
+
+		VkVertexInputBindingDescription bindingDescription;
+		std::array<VkVertexInputAttributeDescription, 3> AttributeDescriptions;
+
 		VkDescriptorSet textures_desc_set_;
+		VkDescriptorSet light_desc_set_;
 		Texture albedo_texture_;
 
 		friend class RenderContext;

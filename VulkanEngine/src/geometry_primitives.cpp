@@ -33,7 +33,39 @@ void VKE::GeoPrimitives::Cube(VKE::RenderContext* render_ctx, VKE::RenderCompone
 		{+1.0f,-1.0f,-1.0f},
 		{+1.0f,-1.0f,+1.0f},
 		{-1.0f,-1.0f,+1.0f}
-	};  
+	}; 
+
+	glm::vec3 norm[] = {
+	{+0.0f,+0.0f,+1.0f},
+	{+0.0f,+0.0f,+1.0f},
+	{+0.0f,+0.0f,+1.0f},
+	{+0.0f,+0.0f,+1.0f},
+
+	{+1.0f,+0.0f,+0.0f},
+	{+1.0f,+0.0f,+0.0f},
+	{+1.0f,+0.0f,+0.0f},
+	{+1.0f,+0.0f,+0.0f},
+
+	{+0.0f,+1.0f,+0.0f},
+	{+0.0f,+1.0f,+0.0f},
+	{+0.0f,+1.0f,+0.0f},
+	{+0.0f,+1.0f,+0.0f},
+
+	{+0.0f,+0.0f,-1.0f},
+	{+0.0f,+0.0f,-1.0f},
+	{+0.0f,+0.0f,-1.0f},
+	{+0.0f,+0.0f,-1.0f},
+
+	{-1.0f,+0.0f,+0.0f},
+	{-1.0f,+0.0f,+0.0f},
+	{-1.0f,+0.0f,+0.0f},
+	{-1.0f,+0.0f,+0.0f},
+
+	{+0.0f,-1.0f,+0.0f},
+	{+0.0f,-1.0f,+0.0f},
+	{+0.0f,-1.0f,+0.0f},
+	{+0.0f,-1.0f,+0.0f},
+	};
 
 	glm::vec2 uv[]{
 		{1.0f,0.0f},
@@ -75,6 +107,7 @@ void VKE::GeoPrimitives::Cube(VKE::RenderContext* render_ctx, VKE::RenderCompone
 
 	for (uint32 i = 0; i < 24; ++i) {
 		cube_vertex_data[i].pos = pos[i];
+		cube_vertex_data[i].normal = norm[i];
 		cube_vertex_data[i].uv = uv[i];
 	}
 
@@ -230,5 +263,59 @@ void VKE::GeoPrimitives::Cubemap(VKE::RenderContext* render_ctx, VKE::RenderComp
 	VKE::InternalBuffer& index_internal_buffer = rend->getIndexBuffer();
 	index_internal_buffer.init(render_ctx, sizeof(ushort16), cubemap_index_data.size(), VKE::BufferType_Index);
 	index_internal_buffer.uploadData((void*)cubemap_index_data.data());
+
+}
+
+void VKE::GeoPrimitives::Heighmap(RenderContext* render_ctx, RenderComponent* rend, int64 width, int64 height, float64 vertex_density, int64 u_repeats, int64 v_repeats) {
+
+	float64 pos_step = 1.0f / vertex_density;
+	float64 u_step = 1.0f / (static_cast<float64>(width) / u_repeats);
+	float64 v_step = 1.0f / (static_cast<float64>(height) / v_repeats);
+
+	std::vector<VKE::Vertex> hm_vertex_data_;
+	hm_vertex_data_.resize(width*height);
+
+	uint64 vert_it = 0;
+	for (int64 y = -(height/2); y < height/2; ++y) {
+		for (int64 x = -(width/2); x < width/2; ++x, ++vert_it) {
+			VKE::Vertex vertex;
+
+			vertex.pos = glm::vec3(x * pos_step, 0.0f, y * pos_step);
+			vertex.normal = glm::vec3(0.0f, 1.0f, 0.0f);
+			vertex.uv = glm::vec2((x+width/2) * u_step, (y+height/2) * v_step);
+
+			hm_vertex_data_[vert_it] = vertex;
+		}
+	}
+
+	std::vector<ushort16> hm_index_data_;
+	hm_index_data_.resize((width-1)*(height-1)*6);
+
+	uint64 index_it = 0;
+	for (uint32 y = 0; y < height; ++y) {
+		for (uint32 x = 0; x < width; ++x) {
+
+			if (x == width - 1 || y == height - 1) continue;
+			uint32 v = (x + y * height);
+
+			hm_index_data_[index_it + 0] = v;
+			hm_index_data_[index_it + 1] = v + 1 + height;
+			hm_index_data_[index_it + 2] = v + 1;
+
+			hm_index_data_[index_it + 3] = v + 1 + height;
+			hm_index_data_[index_it + 4] = v;
+			hm_index_data_[index_it + 5] = v + height;
+
+			index_it += 6;
+		}
+	}
+
+	VKE::InternalBuffer& vertex_internal_buffer = rend->getVertexBuffer();
+	vertex_internal_buffer.init(render_ctx, sizeof(VKE::Vertex), hm_vertex_data_.size(), VKE::BufferType_Vertex);
+	vertex_internal_buffer.uploadData((void*)hm_vertex_data_.data());
+
+	VKE::InternalBuffer& index_internal_buffer = rend->getIndexBuffer();
+	index_internal_buffer.init(render_ctx, sizeof(ushort16), hm_index_data_.size(), VKE::BufferType_Index);
+	index_internal_buffer.uploadData((void*)hm_index_data_.data());
 
 }

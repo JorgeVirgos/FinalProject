@@ -1,6 +1,10 @@
 #include "internal_buffer.h"
 #include "render_context.h"
 
+VKE::InternalBuffer& VKE::Buffer::getInternalRsc(VKE::RenderContext* render_ctx) {
+	return render_ctx->getInternalRsc<VKE::Buffer::internal_class>(*this);
+}
+
 VKE::InternalBuffer::InternalBuffer(){
 	
 	has_been_initialised_ = false;
@@ -83,14 +87,12 @@ void VKE::InternalBuffer::init(RenderContext* render_ctx, uint32 element_size, s
 		buffer_usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 		break;
 	case(VKE::BufferType_Uniform):
+	case(VKE::BufferType_ExternalUniform):
 		mem_properties_ = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
 		buffer_usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 		break;
 	default:
-		// ERROR: Invalid buffer type
-		mem_properties_ = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-		buffer_usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-		break;
+		throw std::runtime_error("VKE::InternalBuffer::init - Invalid / Unsupported BufferType");
 	}
 
 	VkBufferCreateInfo bufferInfo = {};
@@ -143,7 +145,7 @@ void VKE::InternalBuffer::uploadData(void* data) {
 
 	if (data == nullptr || buffer_type_ == BufferType_Staging) return; // Data to be uploaded later 
 
-	if (buffer_type_ == BufferType_Uniform) {
+	if (buffer_type_ == BufferType_Uniform || buffer_type_ == BufferType_ExternalUniform) {
 		void* mapped_data = nullptr;
 		vkMapMemory(render_ctx_->getDevice(), buffer_memory_, 0, VK_WHOLE_SIZE, 0, &mapped_data);
 		memcpy(mapped_data, data, element_size_ * element_count_);

@@ -13,7 +13,10 @@ namespace VKE {
 	struct Texture : BaseHandle {
 		Texture() {};
 		~Texture() {};
+
 		typedef InternalTexture internal_class;
+		InternalTexture& getInternalRsc(RenderContext*);
+
 
 	private:
 		Texture(uint32 id) { id_ = id; }

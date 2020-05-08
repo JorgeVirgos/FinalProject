@@ -15,7 +15,9 @@ namespace VKE {
 	struct Buffer : public BaseHandle {
 		Buffer() {};
 		~Buffer() {};
+
 		typedef InternalBuffer internal_class;
+		InternalBuffer& getInternalRsc(RenderContext*);
 
 	private:
 		Buffer(uint32 id) { id_ = id; }

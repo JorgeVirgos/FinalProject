@@ -55,6 +55,7 @@ namespace VKE {
     void calculateDynamicMatrices();
 
 		glm::vec3 pos();
+		glm::vec3 forward();
 		glm::mat4 viewProjectionMatrix();
 		glm::mat4 viewMatrix();
 		glm::mat4 projectionMatrix();

@@ -13,6 +13,7 @@ namespace VKE{
 	enum DescriptorType {
 		DescriptorType_Matrices = 0,
 		DescriptorType_Textures,
+		DescriptorType_Light,
 		DescriptorType_MAX
 	};
 
@@ -25,6 +26,7 @@ namespace VKE{
 		BufferType_Vertex = 0,
 		BufferType_Index,
 		BufferType_Uniform,
+		BufferType_ExternalUniform,
 		BufferType_Staging,
 		BufferType_MAX
 	};
@@ -38,12 +40,21 @@ namespace VKE{
 
 	};
 
+	enum PipelineType {
+		PipelineType_Render = 0,
+		PipelineType_PostProcess,
+		PipelineType_Shadow
+	};
+
 	struct MaterialInfo {
+		std::string vert_shader_name_ = "";
+		std::string frag_shader_name_ = "";
 		float dynamic_line_width_ = 1.0f;
 		VkViewport dynamic_viewport_ = {};
 		VkRect2D dynamic_scissors_ = {};
 		VkCullModeFlagBits cull_mode_ = VK_CULL_MODE_BACK_BIT;
 		uchar8 subpass_num_ = 0;
+		PipelineType pipeline_type_ = PipelineType_Render;
 	};
 
 	struct Vertex {
@@ -97,10 +108,31 @@ namespace VKE{
 
 	struct UniformBufferMatrices {
 		alignas(16) glm::mat4 model;
+		alignas(16) glm::mat4 model_inv;
 		alignas(16) glm::mat4 view;
 		alignas(16) glm::mat4 proj;
 	};
+
+	struct UniformLightData {
+		alignas(16) glm::mat4 light_space;
+		alignas(4) glm::vec4 light_dir;
+		alignas(4) glm::vec4 camera_pos;
+		alignas(4) glm::vec4 color_ambient;
+		uint32 debug_shader = 0;
+	};
+
+	struct UniformObjectLightData {
+		float shininess = 4.0f;
+	};
+
+	struct ui_data {
+		char8 entity_name[64] = { '0' };
+		char8 num_transform = 0;
+		char8 num_render = 0;
+	};
+
 }
+
 
 static inline std::vector<char8> readFile(const std::string& filename) {
 	std::ifstream file(filename, std::ios::ate | std::ios::binary);

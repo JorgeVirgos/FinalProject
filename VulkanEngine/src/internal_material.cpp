@@ -1,10 +1,16 @@
 #include "internal_material.h"
 #include "render_context.h"
 
+VKE::InternalMaterial& VKE::Material::getInternalRsc(VKE::RenderContext* render_ctx) {
+	return render_ctx->getInternalRsc<VKE::Material::internal_class>(*this);
+}
+
+
 VKE::InternalMaterial::InternalMaterial() {
 	pipeline_layout_ = VK_NULL_HANDLE;
 	graphical_pipeline_ = VK_NULL_HANDLE;
 	textures_desc_set_ = VK_NULL_HANDLE;
+	light_desc_set_ = VK_NULL_HANDLE;
 
 	mat_info_ = VKE::MaterialInfo();
 
@@ -25,18 +31,19 @@ void VKE::InternalMaterial::reset(RenderContext* render_ctx) {
 	pipeline_layout_ = VK_NULL_HANDLE;
 	graphical_pipeline_ = VK_NULL_HANDLE;
 	textures_desc_set_ = VK_NULL_HANDLE;
+	light_desc_set_ = VK_NULL_HANDLE;
 
 	mat_info_ = VKE::MaterialInfo();
 	has_been_initialised_ = false;
 	in_use_ = false;
 }
 
-void VKE::InternalMaterial::init(RenderContext* render_ctx, std::string vert_name, std::string frag_name, MaterialInfo mat_info) {
+void VKE::InternalMaterial::init(RenderContext* render_ctx, MaterialInfo mat_info) {
 	
 	mat_info_ = mat_info;
 	render_ctx_ = render_ctx;
-	vert_name_ = "./../../resources/shaders/" + (vert_name == "" ? "test_vert.spv" : vert_name);
-	frag_name_ = "./../../resources/shaders/" + (frag_name == "" ? "test_frag.spv" : frag_name);
+	mat_info_.vert_shader_name_ = "./../../resources/shaders/" + (mat_info_.vert_shader_name_ == "" ? "test_vert.spv" : mat_info_.vert_shader_name_);
+	mat_info_.frag_shader_name_ = "./../../resources/shaders/" + (mat_info_.frag_shader_name_ == "" ? "test_frag.spv" : mat_info_.frag_shader_name_);
 
 	if (mat_info_.dynamic_viewport_.width == 0 && mat_info_.dynamic_viewport_.height == 0) {
 		mat_info_.dynamic_viewport_.x = 0.0f;
@@ -55,8 +62,8 @@ void VKE::InternalMaterial::init(RenderContext* render_ctx, std::string vert_nam
 	if (mat_info_.subpass_num_ > 1) mat_info_.subpass_num_ = 0;
 
 	
-	auto vertShaderCode = readFile(vert_name_);
-	auto fragShaderCode = readFile(frag_name_);
+	auto vertShaderCode = readFile(mat_info_.vert_shader_name_);
+	auto fragShaderCode = readFile(mat_info_.frag_shader_name_);
 
 	VkShaderModule vertShaderModule = render_ctx_->createShaderModule(vertShaderCode);
 	VkShaderModule fragShaderModule = render_ctx_->createShaderModule(fragShaderCode);
@@ -77,11 +84,11 @@ void VKE::InternalMaterial::init(RenderContext* render_ctx, std::string vert_nam
 
 
 	// GEOMETRY
-	VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
+	vertexInputInfo = {};
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
-	auto bindingDescription = VKE::Vertex::getBindingDescription();
-	auto AttributeDescriptions = VKE::Vertex::getAttributeDescriptions();
+	bindingDescription = VKE::Vertex::getBindingDescription();
+	AttributeDescriptions = VKE::Vertex::getAttributeDescriptions();
 
 	vertexInputInfo.vertexBindingDescriptionCount = 1;
 	vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32>(AttributeDescriptions.size());
@@ -89,20 +96,20 @@ void VKE::InternalMaterial::init(RenderContext* render_ctx, std::string vert_nam
 	vertexInputInfo.pVertexBindingDescriptions = &bindingDescription; // Optional
 	vertexInputInfo.pVertexAttributeDescriptions = AttributeDescriptions.data(); // Optional
 
-	VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
+	inputAssembly = {};
 	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 	inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	inputAssembly.primitiveRestartEnable = VK_FALSE;
 
 
-	VkPipelineViewportStateCreateInfo viewportState = {};
+	viewportState = {};
 	viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
 	viewportState.viewportCount = 1;
 	viewportState.pViewports = &mat_info_.dynamic_viewport_;
 	viewportState.scissorCount = 1;
 	viewportState.pScissors = &mat_info_.dynamic_scissors_;
 
-	VkPipelineRasterizationStateCreateInfo rasterizer = {};
+	rasterizer = {};
 	rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	rasterizer.depthClampEnable = VK_FALSE;
 	rasterizer.rasterizerDiscardEnable = VK_FALSE;
@@ -114,7 +121,7 @@ void VKE::InternalMaterial::init(RenderContext* render_ctx, std::string vert_nam
 	rasterizer.depthBiasClamp = 0.0f; // Optional
 	rasterizer.depthBiasSlopeFactor = 0.0f; // Optional
 
-	VkPipelineMultisampleStateCreateInfo multisampling = {};
+	multisampling = {};
 	multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 	multisampling.sampleShadingEnable = VK_FALSE;
 	multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
@@ -123,7 +130,7 @@ void VKE::InternalMaterial::init(RenderContext* render_ctx, std::string vert_nam
 	multisampling.alphaToCoverageEnable = VK_FALSE; // Optional
 	multisampling.alphaToOneEnable = VK_FALSE; // Optional
 
-	VkPipelineDepthStencilStateCreateInfo depthStencil{};
+	depthStencil = {};
 	depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 	depthStencil.depthTestEnable = VK_TRUE;
 	depthStencil.depthWriteEnable = VK_TRUE;
@@ -136,7 +143,7 @@ void VKE::InternalMaterial::init(RenderContext* render_ctx, std::string vert_nam
 	depthStencil.front = {}; // Optional
 	depthStencil.back = {}; // Optional
 
-	VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
+	colorBlendAttachment = {};
 	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 	colorBlendAttachment.blendEnable = VK_FALSE;
 	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
@@ -155,7 +162,7 @@ void VKE::InternalMaterial::init(RenderContext* render_ctx, std::string vert_nam
 	//colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
 	//colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
 
-	VkPipelineColorBlendStateCreateInfo colorBlending = {};
+	colorBlending = {};
 	colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 	colorBlending.logicOpEnable = VK_FALSE;
 	colorBlending.logicOp = VK_LOGIC_OP_COPY; // Optional
@@ -166,13 +173,7 @@ void VKE::InternalMaterial::init(RenderContext* render_ctx, std::string vert_nam
 	colorBlending.blendConstants[2] = 0.0f; // Optional
 	colorBlending.blendConstants[3] = 0.0f; // Optional
 
-	VkDynamicState dynamicStates[] = {
-	VK_DYNAMIC_STATE_LINE_WIDTH,
-	VK_DYNAMIC_STATE_VIEWPORT,
-	VK_DYNAMIC_STATE_SCISSOR,
-	};
-
-	VkPipelineDynamicStateCreateInfo dynamicState = {};
+	dynamicState = {};
 	dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
 	dynamicState.dynamicStateCount = 3;
 	dynamicState.pDynamicStates = dynamicStates;
@@ -189,31 +190,34 @@ void VKE::InternalMaterial::init(RenderContext* render_ctx, std::string vert_nam
 		std::runtime_error("failed to create pipeline layout!");
 	}
 
-	VkGraphicsPipelineCreateInfo pipelineInfo = {};
-	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	pipelineInfo.stageCount = 2;
-	pipelineInfo.pStages = shaderStages;
+	pipeline_creation_info_ = {};
+	pipeline_creation_info_.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	pipeline_creation_info_.stageCount = 2;
+	pipeline_creation_info_.pStages = shaderStages;
 
-	pipelineInfo.pVertexInputState = &vertexInputInfo;
-	pipelineInfo.pInputAssemblyState = &inputAssembly;
-	pipelineInfo.pViewportState = &viewportState;
-	pipelineInfo.pRasterizationState = &rasterizer;
-	pipelineInfo.pMultisampleState = &multisampling;
-	pipelineInfo.pDepthStencilState = &depthStencil; // Optional
-	pipelineInfo.pColorBlendState = &colorBlending;
-	pipelineInfo.pDynamicState = &dynamicState; // Optional
+	pipeline_creation_info_.pVertexInputState = &vertexInputInfo;
+	pipeline_creation_info_.pInputAssemblyState = &inputAssembly;
+	pipeline_creation_info_.pViewportState = &viewportState;
+	pipeline_creation_info_.pRasterizationState = &rasterizer;
+	pipeline_creation_info_.pMultisampleState = &multisampling;
+	pipeline_creation_info_.pDepthStencilState = &depthStencil; // Optional
+	pipeline_creation_info_.pColorBlendState = &colorBlending;
+	pipeline_creation_info_.pDynamicState = &dynamicState; // Optional
 
-	pipelineInfo.layout = pipeline_layout_;
-	pipelineInfo.subpass = mat_info_.subpass_num_;
-	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
-	pipelineInfo.basePipelineIndex = -1; // Optional
+	pipeline_creation_info_.layout = pipeline_layout_;
+	pipeline_creation_info_.subpass = mat_info_.subpass_num_;
+	pipeline_creation_info_.flags |= VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT;
+	pipeline_creation_info_.basePipelineHandle = VK_NULL_HANDLE; // Optional
+	pipeline_creation_info_.basePipelineIndex = -1; // Optional
 
-	if(vert_name == "quadscreen_vert.spv")
-		pipelineInfo.renderPass = render_ctx_->getQuadRenderPass();
+	if(mat_info.pipeline_type_ == PipelineType_PostProcess)
+		pipeline_creation_info_.renderPass = render_ctx_->getQuadRenderPass();
+	else if(mat_info.pipeline_type_ == PipelineType_Shadow)
+		pipeline_creation_info_.renderPass = render_ctx_->getShadowRenderPass();
 	else
-		pipelineInfo.renderPass = render_ctx_->getRenderPass();
+		pipeline_creation_info_.renderPass = render_ctx_->getRenderPass();
 
-	if (vkCreateGraphicsPipelines(render_ctx_->getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphical_pipeline_) != VK_SUCCESS) {
+	if (vkCreateGraphicsPipelines(render_ctx_->getDevice(), VK_NULL_HANDLE, 1, &pipeline_creation_info_, nullptr, &graphical_pipeline_) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create graphics pipeline!");
 	}
 
@@ -223,6 +227,9 @@ void VKE::InternalMaterial::init(RenderContext* render_ctx, std::string vert_nam
 	VkDescriptorSetAllocateInfo alloc_info = render_ctx_->getDescriptorAllocationInfo(VKE::DescriptorType_Textures);
 	vkAllocateDescriptorSets(render_ctx_->getDevice(), &alloc_info, &textures_desc_set_);
 
+	alloc_info = render_ctx_->getDescriptorAllocationInfo(VKE::DescriptorType_Light);
+	vkAllocateDescriptorSets(render_ctx_->getDevice(), &alloc_info, &light_desc_set_);
+
 	has_been_initialised_ = true;
 	has_been_allocated_ = true;
 
@@ -230,6 +237,62 @@ void VKE::InternalMaterial::init(RenderContext* render_ctx, std::string vert_nam
 	VKE::InternalTexture& default_texture = render_ctx_->getDefaultInternalTexture();
 	render_ctx_->UpdateDescriptor(textures_desc_set_, DescriptorType_Textures, (void*)&default_texture);
 
+	render_ctx_->UpdateDescriptor(light_desc_set_, DescriptorType_Light, (void*)&render_ctx_->getLightingDataBuffer());
+
+}
+
+void VKE::InternalMaterial::recreatePipeline(MaterialInfo* mat_info) {
+	
+	if (!has_been_allocated_ || !has_been_initialised_) return;
+	
+	if (mat_info == nullptr) {
+		
+		auto vertShaderCode = readFile(mat_info_.vert_shader_name_);
+		auto fragShaderCode = readFile(mat_info_.frag_shader_name_);
+
+		VkShaderModule vertShaderModule = render_ctx_->createShaderModule(vertShaderCode);
+		VkShaderModule fragShaderModule = render_ctx_->createShaderModule(fragShaderCode);
+
+		VkPipelineShaderStageCreateInfo vertShaderStageInfo = {};
+		vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+		vertShaderStageInfo.module = vertShaderModule;
+		vertShaderStageInfo.pName = "main";
+
+		VkPipelineShaderStageCreateInfo fragShaderStageInfo = {};
+		fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+		fragShaderStageInfo.module = fragShaderModule;
+		fragShaderStageInfo.pName = "main";
+
+		VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+
+		VkGraphicsPipelineCreateInfo derivative_pipeline = pipeline_creation_info_;
+		derivative_pipeline.flags |= VK_PIPELINE_CREATE_DERIVATIVE_BIT;
+		derivative_pipeline.basePipelineIndex = -1;
+		derivative_pipeline.basePipelineHandle = graphical_pipeline_;
+		derivative_pipeline.pStages = shaderStages;
+
+		if (mat_info_.pipeline_type_ == PipelineType_PostProcess)
+			pipeline_creation_info_.renderPass = render_ctx_->getQuadRenderPass();
+		else if (mat_info_.pipeline_type_ == PipelineType_Shadow)
+			pipeline_creation_info_.renderPass = render_ctx_->getShadowRenderPass();
+		else
+			pipeline_creation_info_.renderPass = render_ctx_->getRenderPass();
+
+		VkPipeline new_pipeline = VK_NULL_HANDLE;
+
+		if (vkCreateGraphicsPipelines(render_ctx_->getDevice(), VK_NULL_HANDLE, 1, &derivative_pipeline, nullptr, &new_pipeline) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create graphics pipeline!");
+		}
+
+		vkDestroyPipeline(render_ctx_->getDevice(), graphical_pipeline_, nullptr);
+		graphical_pipeline_ = new_pipeline;
+
+		vkDestroyShaderModule(render_ctx_->getDevice(), vertShaderModule, nullptr);
+		vkDestroyShaderModule(render_ctx_->getDevice(), fragShaderModule, nullptr);
+
+	}
 }
 
 void VKE::InternalMaterial::UpdateDynamicStates(float dynamic_line_width, VkViewport dynamic_viewport, VkRect2D dynamic_scissors) {

@@ -18,6 +18,8 @@ void VKE::BaseComponent::reset() {
 	in_use_ = false;
 }
 
+
+
 VKE::TransformComponent::TransformComponent() {
 	pos_ = glm::vec3();
 	quat_ = glm::quat();
@@ -45,6 +47,10 @@ void VKE::TransformComponent::reset() {
 	world_matrix_ = glm::identity<glm::mat4>();
 	render_ctx_ = nullptr;
 
+}
+
+void VKE::TransformComponent::setLambda(std::function<void(VKE::HierarchyContext*, VKE::TransformComponent&)> new_lambda) {
+	update_lambda = new_lambda;
 }
 
 void VKE::TransformComponent::setPosition(glm::vec3 pos) {
@@ -232,28 +238,34 @@ template<> void VKE::Manager<VKE::TransformComponent>::Update(VKE::HierarchyCont
 
 		if (!transform.in_use_) continue;
 
+		if (transform.update_lambda != nullptr) transform.update_lambda(hier_ctx_, transform);
+
 		translate = glm::translate(glm::mat4(1.0f), transform.pos_);
 		rotate = glm::toMat4(transform.quat_);
 		scale = glm::scale(glm::mat4(1.0f), transform.scale_);
 
-		transform.local_matrix_ = glm::identity<glm::mat4>();
-
 		transform.local_matrix_ = translate * rotate * scale;
 		transform.world_matrix_ = transform.local_matrix_;
 
-		render_ctx_->updateUniformBuffer(transform.ubm_buffer_, transform.world_matrix_);
+		render_ctx_->updateUniformMatrices(transform.ubm_buffer_, transform.world_matrix_);
 	}
 }
 template<> void VKE::Manager<VKE::RenderComponent>::Update(VKE::HierarchyContext* hier_ctx_, VKE::RenderContext* render_ctx_) {
 	
 	VkViewport vp = render_ctx_->getScreenViewport();
 	VkRect2D sc = render_ctx_->getScreenScissors();
-	
+
+	bool should_recreate_shader = render_ctx_->shouldRecreateShaders();
+	if(should_recreate_shader) vkDeviceWaitIdle(render_ctx_->getDevice());
+
 	for (RenderComponent& render : comp_vec) {
 		if(!render.in_use_) continue;
 
 		render.getMaterial().UpdateDynamicStates(1, vp, sc);
+		if (should_recreate_shader) render.getMaterial().recreatePipeline();
 	}
+
+	if (should_recreate_shader) render_ctx_->setRecreateShaders(false);
 }
 
 template<class Component> void VKE::Manager<Component>::reset() {}
@@ -316,7 +328,7 @@ template<> void VKE::Manager<VKE::RenderComponent>::copyComponent(const RenderCo
 	dst_index.uploadData(nullptr);
 	dst_comp.render_ctx_->copyBuffer(src_index, dst_comp.getIndexBuffer(), src_index.getElementCount() * sizeof(ushort16));
 
-	dst_mat.init(dst_comp.render_ctx_, "", "", VKE::MaterialInfo());
+	dst_mat.init(dst_comp.render_ctx_, dst_mat.mat_info_);
 	dst_mat.UpdateTextures(src_mat.albedo_texture_);
 }
 
@@ -351,11 +363,12 @@ VKE::HierarchyContext::~HierarchyContext() {
 
 }
 
-VKE::Entity& VKE::HierarchyContext::getEntity() {
+VKE::Entity& VKE::HierarchyContext::getEntity(std::string name) {
 	for (Entity& entity : entities_) {
 		if (entity.in_use_ == false) {
-			memcpy(entity.name_, "entity", sizeof(char) * 7);
+			strcpy(entity.name_, name.data());
 			entity.in_use_ = true;
+			entities_in_use++;
 			return entity;
 		} 
 	}
@@ -373,4 +386,21 @@ template VKE::Manager<VKE::RenderComponent>* VKE::HierarchyContext::GetComponent
 void VKE::HierarchyContext::UpdateManagers() {
 	((VKE::Manager<TransformComponent>*)component_managers_[typeid(VKE::TransformComponent).hash_code()])->Update(this, render_ctx_);
 	((VKE::Manager<RenderComponent>*)component_managers_[typeid(VKE::RenderComponent).hash_code()])->Update(this, render_ctx_);
+}
+
+std::vector<VKE::ui_data>& VKE::HierarchyContext::getUIData() {
+
+	entities_ui_data.resize(entities_in_use);
+
+	uint32 it = 0;
+	for (Entity& entity : entities_) {
+		if (entity.in_use_ == false) continue;
+		memset(entities_ui_data[it].entity_name, '/0', 64);
+		strcpy(entities_ui_data[it].entity_name, entity.name_);
+		entities_ui_data[it].num_transform = entity.GetComponents<VKE::TransformComponent>().size();
+		entities_ui_data[it].num_render = entity.GetComponents<VKE::RenderComponent>().size();
+		it++;
+	}
+
+	return entities_ui_data;
 }

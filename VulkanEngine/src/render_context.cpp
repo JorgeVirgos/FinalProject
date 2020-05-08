@@ -2,6 +2,7 @@
 
 #include "window.h"
 #include <GLFW/glfw3.h>
+#include <imgui/imgui_impl_vulkan.h>
 
 
 #define GLM_FORCE_RADIANS
@@ -50,6 +51,40 @@ void VKE::RenderContext::DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDe
 	}
 }
 
+VkCommandBuffer beginCommands(VkCommandPool& command_pool, VkDevice& device) {
+	VkCommandBufferAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocInfo.commandPool = command_pool;
+	allocInfo.commandBufferCount = 1;
+
+	VkCommandBuffer commandBuffer;
+	vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
+
+	VkCommandBufferBeginInfo beginInfo = {};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+	return commandBuffer;
+}
+
+void endCommands(VkCommandPool& command_pool, VkDevice& device, VkQueue& queue, VkCommandBuffer& command_buffer) {
+	vkEndCommandBuffer(command_buffer);
+
+	VkSubmitInfo submitInfo = {};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &command_buffer;
+
+	vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+	vkQueueWaitIdle(queue);
+
+	vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
+}
+
+
 
 void VKE::RenderContext::init(VKE::Window *window, HierarchyContext* hier_context) {
 
@@ -82,6 +117,9 @@ void VKE::RenderContext::init(VKE::Window *window, HierarchyContext* hier_contex
 void VKE::RenderContext::cleanup() {
 	vkDeviceWaitIdle(device_);
 
+	ImGui_ImplVulkan_DestroyFontUploadObjects();
+	ImGui_ImplVulkan_Shutdown();
+
 	cleanupSwapChain();
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -94,6 +132,7 @@ void VKE::RenderContext::cleanup() {
 	std::for_each(internal_textures_.begin(), internal_textures_.end(), [this](VKE::InternalTexture tex) { if(tex.isInUse())tex.reset(this); });
 	std::for_each(internal_materials_.begin(), internal_materials_.end(), [this](VKE::InternalMaterial mat) { if (mat.isInUse())mat.reset(this); });
 	staging_buffer_.reset(this);
+	world_lighting_data_.reset(this);
 	VKE::InternalTexture::resetSampler(this);
 
 	std::for_each(descriptorSetLayouts.begin(), descriptorSetLayouts.end(), [this](VkDescriptorSetLayout layout) { vkDestroyDescriptorSetLayout(this->getDevice(), layout, nullptr); });
@@ -234,22 +273,7 @@ void VKE::RenderContext::draw() {
 }
 
 
-VKAPI_ATTR VkBool32 VKAPI_CALL VKE::RenderContext::debugCallback(
-	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-	VkDebugUtilsMessageTypeFlagsEXT messageType,
-	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-	void* pUserData) {
 
-	std::string sev = "[UNSPECIFIED] ";
-	if( VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT >= messageSeverity) sev = "[ERROR] ";
-	else if(VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT >= messageSeverity) sev = "[WARNING] ";
-	else if(VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT >= messageSeverity) sev = "[INFO] ";
-	else if(VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT >= messageSeverity) sev = "[VERBOSE] ";
-	
-	std::cerr << sev << "validation layer: "  << pCallbackData->pMessage << std::endl;
-
-	return VK_FALSE;
-}
 
 void VKE::RenderContext::createInstance() {
 
@@ -271,6 +295,7 @@ void VKE::RenderContext::createInstance() {
 	createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 	createInfo.pApplicationInfo = &appInfo;
 
+
 	auto extensions_vec = getRequiredExtensions();
 	createInfo.enabledExtensionCount = static_cast<uint32>(extensions_vec.size());
 	createInfo.ppEnabledExtensionNames = extensions_vec.data();
@@ -284,8 +309,8 @@ void VKE::RenderContext::createInstance() {
 		debugCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
 		debugCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
 		debugCreateInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-		debugCreateInfo.pfnUserCallback = debugCallback;
-		debugCreateInfo.pUserData = nullptr; // Optional
+		debugCreateInfo.pfnUserCallback = VKE::Window::debugCallback;
+		debugCreateInfo.pUserData = window_; // Optional
 
 		createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
 	}
@@ -333,8 +358,8 @@ void VKE::RenderContext::setupDebugMessenger() {
 	createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
 	createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
 	createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-	createInfo.pfnUserCallback = debugCallback;
-	createInfo.pUserData = nullptr; // Optional
+	createInfo.pfnUserCallback = VKE::Window::debugCallback;
+	createInfo.pUserData = window_; // Optional
 
 	if (CreateDebugUtilsMessengerEXT(instance_, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
 		throw std::runtime_error("failed to set up debug messenger!");
@@ -662,6 +687,9 @@ void VKE::RenderContext::createDepthResources() {
 	depth_image_.init(this, nullptr, swapChainExtent.width, swapChainExtent.height, VKE::TextureType_DepthAttachment);
 	transitionImageLayout(&depth_image_, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
+	shadow_mapping_image_.init(this, nullptr, scene_shadowmap_size.width, scene_shadowmap_size.height, VKE::TextureType_DepthAttachment);
+	transitionImageLayout(&shadow_mapping_image_, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
 	offscreen_image_.init(this, nullptr, swapChainExtent.width, swapChainExtent.height, VKE::TextureType_ColorAttachment);
 	transitionImageLayout(&offscreen_image_, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 }
@@ -691,16 +719,32 @@ void VKE::RenderContext::createDescriptorSetlayout() {
 	ubmLayoutBinding.pImmutableSamplers = nullptr; // Optional
 	ubmLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-	VkDescriptorSetLayoutBinding samplerLayoutBinding = {};
-	samplerLayoutBinding.binding = 0;
-	samplerLayoutBinding.descriptorCount = 1;
-	samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	samplerLayoutBinding.pImmutableSamplers = nullptr;
-	samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	VkDescriptorSetLayoutBinding diffuseTexLayoutBinding = {};
+	diffuseTexLayoutBinding.binding = 0;
+	diffuseTexLayoutBinding.descriptorCount = 1;
+	diffuseTexLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	diffuseTexLayoutBinding.pImmutableSamplers = nullptr;
+	diffuseTexLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	VkDescriptorSetLayoutBinding shadowmapTexLB = diffuseTexLayoutBinding;
+	shadowmapTexLB.binding = 1;
+
+	std::vector<VkDescriptorSetLayoutBinding> texture_bindings_vec;
+	texture_bindings_vec.push_back(diffuseTexLayoutBinding);
+	texture_bindings_vec.push_back(shadowmapTexLB);
+
+
+	VkDescriptorSetLayoutBinding  uldLayoutBinding = {};
+	uldLayoutBinding.binding = 0;
+	uldLayoutBinding.descriptorCount = 1;
+	uldLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	uldLayoutBinding.pImmutableSamplers = nullptr; // Optional
+	uldLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+
 
 	std::vector<std::vector<VkDescriptorSetLayoutBinding>> set_descriptors_vec;
 	set_descriptors_vec.push_back(std::vector<VkDescriptorSetLayoutBinding>(1, ubmLayoutBinding));
-	set_descriptors_vec.push_back(std::vector<VkDescriptorSetLayoutBinding>(1, samplerLayoutBinding));
+	set_descriptors_vec.push_back(texture_bindings_vec);
+	set_descriptors_vec.push_back(std::vector<VkDescriptorSetLayoutBinding>(1, uldLayoutBinding));
 
 	for (auto binding_vec : set_descriptors_vec) {
 		VkDescriptorSetLayoutCreateInfo layoutInfo = {};
@@ -716,11 +760,6 @@ void VKE::RenderContext::createDescriptorSetlayout() {
 	}
 
 }
-
-
-//void VKE::RenderContext::createGraphicsPipeline() {
-//
-//}
 
 
 VkShaderModule VKE::RenderContext::createShaderModule(const std::vector<char8>& code) {
@@ -740,6 +779,72 @@ VkShaderModule VKE::RenderContext::createShaderModule(const std::vector<char8>& 
 
 
 void VKE::RenderContext::createRenderPass() {
+
+	//VkSubpassDependency dependencies[3] = {
+	//{}, {}, {}
+	//};
+
+	//dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+	//dependencies[0].dstSubpass = 0;
+	//dependencies[0].srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	//dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	//dependencies[0].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	//dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	//dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+	//dependencies[1].srcSubpass = VK_SUBPASS_EXTERNAL;
+	//dependencies[1].dstSubpass = 0;
+	//dependencies[1].srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	//dependencies[1].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	//dependencies[1].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	//dependencies[1].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	//dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+	//dependencies[2].srcSubpass = VK_SUBPASS_EXTERNAL;
+	//dependencies[2].dstSubpass = 0;
+	//dependencies[2].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	//dependencies[2].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	//dependencies[2].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	//dependencies[2].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	//dependencies[2].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+
+
+	VkAttachmentDescription shadowAttachment = {};
+	shadowAttachment.format = depth_image_.format_;
+	shadowAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	shadowAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	shadowAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	shadowAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	shadowAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
+	shadowAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	shadowAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	VkAttachmentReference shadowAttachmentRef = {};
+	shadowAttachmentRef.attachment = 0;
+	shadowAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription shadow_subpass = {};
+	shadow_subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	shadow_subpass.colorAttachmentCount = 0;
+	shadow_subpass.pColorAttachments = nullptr;
+	shadow_subpass.pDepthStencilAttachment = &shadowAttachmentRef;
+	shadow_subpass.pInputAttachments = nullptr;
+
+	VkRenderPassCreateInfo shadowRenderPassInfo = {};
+	shadowRenderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	shadowRenderPassInfo.attachmentCount = 1;
+	shadowRenderPassInfo.pAttachments = &shadowAttachment;
+	shadowRenderPassInfo.subpassCount = 1;
+	shadowRenderPassInfo.pSubpasses = &shadow_subpass;
+	shadowRenderPassInfo.dependencyCount = 0;
+	shadowRenderPassInfo.pDependencies = nullptr;
+
+	if (vkCreateRenderPass(device_, &shadowRenderPassInfo, nullptr, &shadowRenderPass) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create render pass!");
+	}
+
+	
 
 	VkAttachmentDescription colorAttachment = {};
 	colorAttachment.format = swapChainImageFormat;
@@ -776,26 +881,6 @@ void VKE::RenderContext::createRenderPass() {
 	offscreen_subpass.pDepthStencilAttachment = &depthAttachmentRef;
 	offscreen_subpass.pInputAttachments = nullptr;
 
-	VkSubpassDependency dependencies[2] = {
-		{}, {}
-	};
-
-	dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
-	dependencies[0].dstSubpass = 0;
-	dependencies[0].srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependencies[0].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-	dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-	dependencies[1].srcSubpass = 0;
-	dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
-	dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependencies[1].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	dependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-	dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
 	VkAttachmentDescription attachments[] = {
 	colorAttachment,
 	depthAttachment,
@@ -807,9 +892,8 @@ void VKE::RenderContext::createRenderPass() {
 	sceneRenderPassInfo.pAttachments = attachments;
 	sceneRenderPassInfo.subpassCount = 1;
 	sceneRenderPassInfo.pSubpasses = &offscreen_subpass;
-	sceneRenderPassInfo.dependencyCount = 2;
-	sceneRenderPassInfo.pDependencies = dependencies;
-
+	sceneRenderPassInfo.dependencyCount = 0;
+	sceneRenderPassInfo.pDependencies = nullptr;
 
 	if (vkCreateRenderPass(device_, &sceneRenderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create render pass!");
@@ -839,8 +923,8 @@ void VKE::RenderContext::createRenderPass() {
 	QuadRenderPassInfo.pAttachments = &postprocessColorAttachment;
 	QuadRenderPassInfo.subpassCount = 1;
 	QuadRenderPassInfo.pSubpasses = &postprocess_subpass;
-	QuadRenderPassInfo.dependencyCount = 1;
-	QuadRenderPassInfo.pDependencies = dependencies;
+	QuadRenderPassInfo.dependencyCount = 0;
+	QuadRenderPassInfo.pDependencies = nullptr;
 
 
 	if (vkCreateRenderPass(device_, &QuadRenderPassInfo, nullptr, &quadRenderPass) != VK_SUCCESS) {
@@ -870,7 +954,6 @@ void VKE::RenderContext::createFramebuffers() {
 		throw std::runtime_error("failed to create framebuffer!");
 	}
 
-
 	swapChainFramebuffers.resize(swapChainTextures.size());
 	for (size_t i = 0; i < swapChainTextures.size(); ++i) {
 
@@ -879,13 +962,26 @@ void VKE::RenderContext::createFramebuffers() {
 		framebufferInfo.renderPass = quadRenderPass;
 		framebufferInfo.attachmentCount = 1;
 		framebufferInfo.pAttachments = &swapChainTextures[i].image_view_;
-		framebufferInfo.width = swapChainExtent.width;
+		framebufferInfo.width =  swapChainExtent.width;
 		framebufferInfo.height = swapChainExtent.height;
 		framebufferInfo.layers = 1;
 
 		if (vkCreateFramebuffer(device_, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create framebuffer!");
 		}
+	}
+
+	VkFramebufferCreateInfo shadowFBInfo = {};
+	shadowFBInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	shadowFBInfo.renderPass = shadowRenderPass;
+	shadowFBInfo.attachmentCount = 1;
+	shadowFBInfo.pAttachments = &shadow_mapping_image_.image_view_;
+	shadowFBInfo.width = scene_shadowmap_size.width;
+	shadowFBInfo.height = scene_shadowmap_size.height;
+	shadowFBInfo.layers = 1;
+
+	if (vkCreateFramebuffer(device_, &shadowFBInfo, nullptr, &shadowFramebuffer) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create framebuffer!");
 	}
 }
 
@@ -906,7 +1002,7 @@ void VKE::RenderContext::createCommandPool() {
 
 void VKE::RenderContext::createQuadscreenEntity()
 {
-	quadscreen_entity_ = &(hier_context_->getEntity());
+	quadscreen_entity_ = &(hier_context_->getEntity("Screenwide rendering quad"));
 	auto quadscreen_trans = quadscreen_entity_->AddComponent<VKE::TransformComponent>(hier_context_);
 	auto quadscreen_rend = quadscreen_entity_->AddComponent<VKE::RenderComponent>(hier_context_);
 	
@@ -916,10 +1012,20 @@ void VKE::RenderContext::createQuadscreenEntity()
 	VKE::InternalMaterial& quadscreen_mat = quadscreen_rend->getMaterial();
 	VKE::MaterialInfo screen_quad_mat_info;
 	screen_quad_mat_info.cull_mode_ = VK_CULL_MODE_NONE;
-	screen_quad_mat_info.subpass_num_ = 0;
-	quadscreen_mat.init(this, "quadscreen_vert.spv", "quadscreen_frag.spv", screen_quad_mat_info);
+	screen_quad_mat_info.vert_shader_name_ = "quadscreen_vert.spv";
+	screen_quad_mat_info.frag_shader_name_ = "quadscreen_frag.spv";
+	screen_quad_mat_info.pipeline_type_ = VKE::PipelineType_PostProcess;
+
+	quadscreen_mat.init(this, screen_quad_mat_info);
 	quadscreen_mat.UpdateTextures(offscreen_image_);
 
+	VKE::MaterialInfo shadow_mat_info;
+	shadow_mat_info.vert_shader_name_ = "shadowmap_vert.spv";
+	shadow_mat_info.frag_shader_name_ = "shadowmap_frag.spv";
+	shadow_mat_info.pipeline_type_ = VKE::PipelineType_Shadow;
+	shadow_mat_info.cull_mode_ = VK_CULL_MODE_NONE;
+	shadow_mapping_material_.init(this, shadow_mat_info);
+	shadow_mapping_material_.UpdateTextures(shadow_mapping_image_);
 }
 
 uint32 VKE::RenderContext::findMemoryType(uint32 type_filter, VkMemoryPropertyFlags properties) {
@@ -938,6 +1044,23 @@ uint32 VKE::RenderContext::findMemoryType(uint32 type_filter, VkMemoryPropertyFl
 
 void VKE::RenderContext::setUpResources() {
 
+	ImGui_ImplVulkan_InitInfo imgui_info = {};
+	imgui_info.Instance = instance_;
+	imgui_info.PhysicalDevice = physicalDevice;
+	imgui_info.Device = device_;
+	imgui_info.QueueFamily;
+	imgui_info.Queue = graphicsQueue;
+	imgui_info.PipelineCache = VK_NULL_HANDLE;
+	imgui_info.DescriptorPool = descriptorPool;
+	imgui_info.MinImageCount = swapChainTextures.size();
+	imgui_info.ImageCount = swapChainTextures.size();
+
+	ImGui::GetIO().Fonts->AddFontFromFileTTF(".\\..\\..\\resources\\fonts\\simsunb.ttf", 18.0f);
+	ImGui_ImplVulkan_Init(&imgui_info, quadRenderPass);
+	VkCommandBuffer com_buf = beginCommands(commandPool, device_);
+	ImGui_ImplVulkan_CreateFontsTexture(com_buf);
+	endCommands(commandPool, device_, graphicsQueue, com_buf);
+
 	system("D:/WORKSPACE/Vulkan/FinalProjectRepo/VulkanEngine/build/compile_shaders_code.bat");
 
 	resource_type_map.insert({ typeid(VKE::Buffer).hash_code(), &internal_buffers_ });
@@ -949,6 +1072,7 @@ void VKE::RenderContext::setUpResources() {
 	std::fill_n(std::back_inserter(internal_materials_), 100, VKE::InternalMaterial());
 
 	createStagingBuffer();
+	createDefaultLightingData();
 	createDefaultTexture();
 }
 
@@ -966,20 +1090,35 @@ void VKE::RenderContext::createDefaultTexture() {
 	tex.init(this, "./../../resources/textures/default_placeholder.jpg", TextureType_Sampler);
 }
 
+void VKE::RenderContext::createDefaultLightingData() {
+
+	world_lighting_data_.init(this, sizeof(VKE::UniformLightData), 1, VKE::BufferType_ExternalUniform);
+	
+	glm::vec3 sun_pos(std::sin(0) * 3, abs(std::cos(0) * std::cos(0)), abs(std::cos(0) * std::cos(0)));
+
+	VKE::UniformLightData uld;
+	uld.light_dir = glm::vec4(0.58f, 0.58f, 0.58f, 0.0f);
+	uld.camera_pos = glm::vec4(camera_.pos(), 0.0f);
+	uld.color_ambient = glm::vec4(1.0f, 1.0f, 1.0f, 0.1f);
+
+	world_lighting_data_.uploadData((void*)&uld);
+}
 
 void VKE::RenderContext::createDescriptorPool() {
 
-	std::array< VkDescriptorPoolSize, 2> pool_sizes;
+	std::array< VkDescriptorPoolSize, 3> pool_sizes;
 	pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	pool_sizes[0].descriptorCount = 100;
 	pool_sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	pool_sizes[1].descriptorCount = 100;
+	pool_sizes[2].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	pool_sizes[2].descriptorCount = 100;
 
 	VkDescriptorPoolCreateInfo poolInfo = {};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolInfo.poolSizeCount = static_cast<uint32>(pool_sizes.size());
 	poolInfo.pPoolSizes = pool_sizes.data();
-	poolInfo.maxSets = 200;
+	poolInfo.maxSets = 300;
 
 	if (vkCreateDescriptorPool(device_, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create descriptor pool!");
@@ -990,10 +1129,13 @@ void VKE::RenderContext::createDescriptorPool() {
 	allocInfo.descriptorPool = descriptorPool;
 	allocInfo.descriptorSetCount = 1;
 	allocInfo.pSetLayouts = &descriptorSetLayouts[VKE::DescriptorType_Matrices];
-
 	desc_set_allocation_info_[VKE::DescriptorType_Matrices] = allocInfo;
+
 	allocInfo.pSetLayouts = &descriptorSetLayouts[VKE::DescriptorType_Textures];
 	desc_set_allocation_info_[VKE::DescriptorType_Textures] = allocInfo;
+
+	allocInfo.pSetLayouts = &descriptorSetLayouts[VKE::DescriptorType_Light];
+	desc_set_allocation_info_[VKE::DescriptorType_Light] = allocInfo;
 }
 
 
@@ -1094,6 +1236,7 @@ std::vector<const char8*> VKE::RenderContext::getRequiredExtensions() {
 
 
 void VKE::RenderContext::recordCommands() {
+
 	for (uint32 i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) recordNextFrameCommands(commandBuffers[i], swapChainFramebuffers[i]);
 }
 
@@ -1128,6 +1271,15 @@ void VKE::RenderContext::recordNextFrameCommands(VkCommandBuffer command_buffer,
 	clear_values[1].depthStencil = { 1.0, 0 };							//Depth
 	clear_values[2].color = { 1.0f,0.5f,0.5f,1.0f };	//offscreen color
 
+	VkRenderPassBeginInfo shadowPassInfo = {};
+	shadowPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	shadowPassInfo.renderPass = shadowRenderPass;
+	shadowPassInfo.framebuffer = shadowFramebuffer;
+	shadowPassInfo.renderArea.offset = { 0, 0 };
+	shadowPassInfo.renderArea.extent = scene_shadowmap_size;
+	shadowPassInfo.clearValueCount = 1;
+	shadowPassInfo.pClearValues = &clear_values[1];
+
 	VkRenderPassBeginInfo renderPassInfo = {};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassInfo.renderPass = renderPass;
@@ -1150,6 +1302,46 @@ void VKE::RenderContext::recordNextFrameCommands(VkCommandBuffer command_buffer,
 
 
 
+	vkCmdBeginRenderPass(command_buffer, &shadowPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+	VkViewport shadow_vp = {};
+	shadow_vp.width = static_cast<float32>(scene_shadowmap_size.width);
+	shadow_vp.height = static_cast<float32>(scene_shadowmap_size.height);
+	shadow_vp.minDepth = 0.0f;
+	shadow_vp.maxDepth = 1.0f;
+	shadow_vp.x = 0.0f;
+	shadow_vp.y = 0.0f;
+
+	VkRect2D shadown_sc = {};
+	shadown_sc.extent = { scene_shadowmap_size.width, scene_shadowmap_size.height };
+	shadown_sc.offset = { 0,0 };
+
+	for (std::pair<VKE::TransformComponent*, VKE::RenderComponent*> entry : valid_entities) {
+
+		if(entry.second->getMaterial().albedo_texture_.getInternalRsc(this).tex_type_ == TextureType_Cubemap) continue;
+
+		VKE::InternalBuffer& uniform_buffer = entry.first->getUBMBuffer();
+		VKE::InternalBuffer& vertex_buf = entry.second->getVertexBuffer();
+		VKE::InternalBuffer& index_buf = entry.second->getIndexBuffer();
+
+
+		vkCmdSetLineWidth(command_buffer, static_cast<float>(shadow_mapping_material_.mat_info_.dynamic_line_width_));
+		vkCmdSetViewport(command_buffer, 0, 1, &shadow_vp);
+		vkCmdSetScissor(command_buffer, 0, 1, &shadown_sc);
+
+		vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, shadow_mapping_material_.graphical_pipeline_);
+
+		vkCmdBindVertexBuffers(command_buffer, 0, 1, &vertex_buf.buffer_, offsets);
+		vkCmdBindIndexBuffer(command_buffer, index_buf.buffer_, 0, VK_INDEX_TYPE_UINT16);
+
+		vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, shadow_mapping_material_.pipeline_layout_, VKE::DescriptorType_Matrices, 1, &uniform_buffer.uniform_desc_set_, 0, nullptr);
+		vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, shadow_mapping_material_.pipeline_layout_, VKE::DescriptorType_Light, 1, &shadow_mapping_material_.light_desc_set_, 0, nullptr);
+
+		vkCmdDrawIndexed(command_buffer, index_buf.getElementCount(), 1, 0, 0, 0);
+	}
+
+	vkCmdEndRenderPass(command_buffer);
+
 
 	vkCmdBeginRenderPass(command_buffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -1159,6 +1351,7 @@ void VKE::RenderContext::recordNextFrameCommands(VkCommandBuffer command_buffer,
 		VKE::InternalBuffer& vertex_buf = entry.second->getVertexBuffer();
 		VKE::InternalBuffer& index_buf = entry.second->getIndexBuffer();
 		VKE::InternalMaterial& mat = entry.second->getMaterial();
+
 
 		vkCmdSetLineWidth(command_buffer, static_cast<float>(mat.mat_info_.dynamic_line_width_));
 		vkCmdSetViewport(command_buffer, 0, 1, &mat.mat_info_.dynamic_viewport_);
@@ -1171,6 +1364,7 @@ void VKE::RenderContext::recordNextFrameCommands(VkCommandBuffer command_buffer,
 
 		vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mat.pipeline_layout_, VKE::DescriptorType_Matrices, 1, &uniform_buffer.uniform_desc_set_, 0, nullptr);
 		vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mat.pipeline_layout_, VKE::DescriptorType_Textures, 1, &mat.textures_desc_set_, 0, nullptr);
+		vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mat.pipeline_layout_, VKE::DescriptorType_Light, 1, &mat.light_desc_set_, 0, nullptr);
 
 		vkCmdDrawIndexed(command_buffer, index_buf.getElementCount(), 1, 0, 0, 0);
 	}
@@ -1200,6 +1394,7 @@ void VKE::RenderContext::recordNextFrameCommands(VkCommandBuffer command_buffer,
 			vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mat.pipeline_layout_, VKE::DescriptorType_Textures, 1, &mat.textures_desc_set_, 0, nullptr);
 
 			vkCmdDrawIndexed(command_buffer, index_buf.getElementCount(), 1, 0, 0, 0);
+			if(ImGui::GetDrawData()) ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), command_buffer);
 		}
 
 	}
@@ -1270,38 +1465,7 @@ void VKE::RenderContext::clearStaging()
 	vkUnmapMemory(getDevice(), staging_buffer_.buffer_memory_);
 }
 
-VkCommandBuffer beginCommands(VkCommandPool& command_pool, VkDevice& device) {
-	VkCommandBufferAllocateInfo allocInfo = {};
-	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocInfo.commandPool = command_pool;
-	allocInfo.commandBufferCount = 1;
 
-	VkCommandBuffer commandBuffer;
-	vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
-
-	VkCommandBufferBeginInfo beginInfo = {};
-	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-	vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-	return commandBuffer;
-}
-
-void endCommands(VkCommandPool& command_pool, VkDevice& device, VkQueue& queue, VkCommandBuffer& command_buffer) {
-	vkEndCommandBuffer(command_buffer);
-
-	VkSubmitInfo submitInfo = {};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &command_buffer;
-
-	vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
-	vkQueueWaitIdle(queue);
-
-	vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
-}
 
 void VKE::RenderContext::copyBuffer(const InternalBuffer& srcBuffer, const InternalBuffer& dstBuffer, size_t size) {
 
@@ -1451,32 +1615,39 @@ void VKE::RenderContext::transitionImageLayout(InternalTexture* tex, VkImageLayo
 
 void VKE::RenderContext::UpdateDescriptor(VkDescriptorSet desc, VKE::DescriptorType type, void* info_) {
 
-	VkWriteDescriptorSet desc_write = {};
+	std::vector<VkWriteDescriptorSet> desc_writes;
+	VkWriteDescriptorSet dw = {};
+
 
 	if(type == VKE::DescriptorType_Textures){
 
 		VKE::InternalTexture* internal_tex = ((VKE::InternalTexture*)info_);
-		VkDescriptorImageInfo imageInfo = {};
-
-		//if(internal_tex->tex_type_ == TextureType_ColorAttachment)
-		//	imageInfo.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		//else
-			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-		imageInfo.imageView = internal_tex->image_view_;
-
+		VkDescriptorImageInfo diffImageInfo = {};
+		diffImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		diffImageInfo.imageView = internal_tex->image_view_;
 		if(internal_tex->has_created_custom_sampler_)
-			imageInfo.sampler = internal_tex->custom_sampler_;
+			diffImageInfo.sampler = internal_tex->custom_sampler_;
 		else
-			imageInfo.sampler = VKE::InternalTexture::default_sampler_;
+			diffImageInfo.sampler = VKE::InternalTexture::default_sampler_;
 
-		desc_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		desc_write.dstSet = desc;
-		desc_write.dstBinding = 0;
-		desc_write.dstArrayElement = 0;
-		desc_write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		desc_write.descriptorCount = 1;
-		desc_write.pImageInfo = &imageInfo;
+		VkDescriptorImageInfo shadowmapImageInfo = {};
+		shadowmapImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		shadowmapImageInfo.imageView = shadow_mapping_image_.image_view_;
+		shadowmapImageInfo.sampler = VKE::InternalTexture::default_sampler_;
+
+		dw.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		dw.dstSet = desc;
+		dw.dstBinding = 0;
+		dw.dstArrayElement = 0;
+		dw.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		dw.descriptorCount = 1;
+		dw.pImageInfo = &diffImageInfo;
+		desc_writes.push_back(dw);
+
+		dw.dstBinding = 1;
+		dw.pImageInfo = &shadowmapImageInfo;
+		desc_writes.push_back(dw);
+
 
 	} else if (type == VKE::DescriptorType_Matrices) {
 
@@ -1485,24 +1656,45 @@ void VKE::RenderContext::UpdateDescriptor(VkDescriptorSet desc, VKE::DescriptorT
 		bufferInfo.offset = 0;
 		bufferInfo.range = sizeof(VKE::UniformBufferMatrices);
 
-		desc_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		desc_write.dstSet = desc;
-		desc_write.dstBinding = 0;
-		desc_write.dstArrayElement = 0;
-		desc_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		desc_write.descriptorCount = 1;
-		desc_write.pBufferInfo = &bufferInfo;
+		dw.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		dw.dstSet = desc;
+		dw.dstBinding = 0;
+		dw.dstArrayElement = 0;
+		dw.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		dw.descriptorCount = 1;
+		dw.pBufferInfo = &bufferInfo;
+		desc_writes.push_back(dw);
+
+
+	}
+	else if (type == VKE::DescriptorType_Light) {
+		VkDescriptorBufferInfo bufferInfo = {};
+
+		InternalBuffer* lighting_buffer = (InternalBuffer*)info_;
+		bufferInfo.buffer = lighting_buffer->buffer_;
+		bufferInfo.offset = 0;
+		bufferInfo.range = sizeof(VKE::UniformLightData);
+
+		dw.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		dw.dstSet = desc;
+		dw.dstBinding = 0;
+		dw.dstArrayElement = 0;
+		dw.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		dw.descriptorCount = 1;
+		dw.pBufferInfo = &bufferInfo;
+		desc_writes.push_back(dw);
 
 	}
 
-	vkUpdateDescriptorSets(device_, 1, &desc_write, 0, nullptr);
+	vkUpdateDescriptorSets(device_, desc_writes.size(), desc_writes.data(), 0, nullptr);
 }
 
-void  VKE::RenderContext::updateUniformBuffer(VKE::Buffer buffer, glm::mat4 model_mat) {
+void  VKE::RenderContext::updateUniformMatrices(VKE::Buffer buffer, glm::mat4 model_mat) {
 
 	VKE::UniformBufferMatrices ubm;
 
 	ubm.model = model_mat;
+	ubm.model_inv = glm::inverse(model_mat);
 	ubm.view =	camera_.viewMatrix();
 	ubm.proj = camera_.projectionMatrix();
 
@@ -1513,3 +1705,49 @@ void  VKE::RenderContext::updateUniformBuffer(VKE::Buffer buffer, glm::mat4 mode
 	getInternalRsc<VKE::Buffer::internal_class>(buffer).uploadData((void*)&ubm);
 }
 
+
+void  VKE::RenderContext::updateLightData() {
+
+	float32 ambient = 0.1f;
+	float64 t = 0.0;
+	glm::vec3 light_color = glm::vec3(1.0, 0.79, 0.43);
+	uint32 debug_shader = 0;
+
+	if (window_->rendering_options != nullptr) {
+		ambient = window_->rendering_options->ambient_;
+		t = window_->rendering_options->sun_angle_;
+		light_color = window_->rendering_options->light_color_;
+		debug_shader = static_cast<uint32>(window_->rendering_options->debug_type_);
+
+		recreate_shaders_ = window_->rendering_options->should_recreate_shaders;
+		if(recreate_shaders_) 
+			system("D:/WORKSPACE/Vulkan/FinalProjectRepo/VulkanEngine/build/compile_shaders_code.bat");
+
+		window_->rendering_options->should_recreate_shaders = false;
+	}
+
+	//float64 t = std::fmodl((window_->getTimeSinceStartup() / 16.0), glm::pi<float64>()) - glm::half_pi<float64>();
+	glm::vec3 sun_pos(std::sin(t) * 3, abs(std::cos(t) * std::cos(t)) / 2.0f, -abs(std::cos(t) * std::cos(t)));
+	glm::vec3 sun_light_pos = glm::normalize(sun_pos) * 50.0f;
+	glm::vec3 light_front_ = -glm::normalize(sun_pos);
+
+	glm::vec3 light_right_ = glm::normalize(glm::cross(light_front_, t > 0.1629 ? glm::vec3(0.0f, 1.0f, 0.0f) : glm::vec3(0.0f, -1.0f, 0.0f)));  // Normalize the vectors, because their length gets closer to 0 the more you look up or down which results in slower movement.
+	glm::vec3 light_up_ = glm::normalize(glm::cross(light_right_, light_up_));
+
+	//glm::mat4 light_ortho = glm::ortho(-static_cast<float32>(swapChainExtent.width / 2), static_cast<float32>(swapChainExtent.width/2),
+	//	-static_cast<float32>(swapChainExtent.height/2), static_cast<float32>(swapChainExtent.height/2),
+	//	0.1f, 1000.0f);
+
+	glm::mat4 light_ortho = Camera::getOrthoMatrix(128.0f, 128.0f, 0.1f, 125.0f);
+
+	VKE::UniformLightData uld;
+	//uld.light_space = camera_.projectionMatrix() * camera_.viewMatrix();
+	//uld.light_space = light_ortho * camera_.viewMatrix();
+	uld.light_space = light_ortho * Camera::getViewMatrix(sun_light_pos, light_front_, light_up_);
+	uld.light_dir = glm::vec4(-light_front_, 0.0f);
+	uld.camera_pos = glm::vec4(camera_.pos(), 0.5f);
+	uld.color_ambient = glm::vec4(light_color, ambient);
+	uld.debug_shader = debug_shader;
+
+	world_lighting_data_.uploadData((void*)&uld);
+}

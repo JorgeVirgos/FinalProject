@@ -64,6 +64,11 @@ files {
     "../deps/glm/detail/*.cpp",
     --
 
+    -- Dear ImGUI
+    "../deps/imgui/*.h",
+    "../deps/imgui/*.cpp",
+    --
+
     "../deps/stb_image.h",
     "../deps/tiny_gltf.h",
 

@@ -8,6 +8,9 @@ VkSampler VKE::InternalTexture::default_sampler_ = VK_NULL_HANDLE;
 bool VKE::InternalTexture::has_created_defailt_sample_ = false;
 VkFormat VKE::InternalTexture::depth_format_ = VK_FORMAT_D32_SFLOAT;
 
+VKE::InternalTexture& VKE::Texture::getInternalRsc(VKE::RenderContext* render_ctx) {
+	return render_ctx->getInternalRsc<VKE::Texture::internal_class>(*this);
+}
 
 VKE::InternalTexture::InternalTexture() {
 	width_ = 0;
@@ -149,7 +152,7 @@ void VKE::InternalTexture::load(uchar8* pixels) {
 	case TextureType_DepthAttachment:
 		type_ = VK_IMAGE_TYPE_2D;
 		format_ = depth_format_;
-		imageInfo.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+		imageInfo.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		break;
 	case TextureType_Cubemap:
 		type_ = VK_IMAGE_TYPE_2D;

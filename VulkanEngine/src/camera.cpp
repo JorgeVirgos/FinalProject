@@ -206,6 +206,10 @@ glm::vec3 VKE::Camera::pos() {
 	return camera_position_;
 }
 
+glm::vec3 VKE::Camera::forward() {
+	return camera_front_;
+}
+
 glm::mat4 VKE::Camera::getViewMatrix(glm::vec3 camera_position, glm::vec3 camera_front, glm::vec3 camera_up) {
 	return glm::lookAt(camera_position, camera_position + camera_front, camera_up);
 }
@@ -214,12 +218,33 @@ glm::mat4 VKE::Camera::getProjectionMatrix(float32 fov, float32 width, float32 h
 	return glm::perspective(glm::radians(fov), width / height, near_plane, far_plane);
 }
 
-glm::mat4 VKE::Camera::getOrthoMatrix(float32 width, float32 height, float32 initial_x, float32 initial_y) {
+glm::mat4 VKE::Camera::getOrthoMatrix(float32 width, float32 height, float32 near_plane, float32 far_plane) {
+
+	float32 right_plane = width / 2;
+	float32 top_plane = height / 2;
+	float32 left_plane = -right_plane;
+	float32 bottom_plane = -top_plane;
+
 	 glm::mat4 proj = {
-			2.0f / (width - initial_x),   0.0f,         0.0f,   0.0f ,
-			0.0f,         2.0f / (initial_y - height),   0.0f,   0.0f ,
-			0.0f,         0.0f,        -1.0f,   0.0f ,
-			(width + initial_x) / (initial_x - width),  (initial_y + height) / ( height - initial_y),  0.0f,   1.0f
+			2.0f / (right_plane - left_plane),
+			0.0f,
+			0.0f,
+			0.0f,
+
+			0.0f,
+			2.0f / (bottom_plane - top_plane),
+			0.0f,
+			0.0f,
+
+			0.0f,
+			0.0f,
+			1.0f / (near_plane - far_plane),
+			0.0f,
+
+			-(right_plane + left_plane) / (right_plane - left_plane),
+			-(bottom_plane + top_plane) / (bottom_plane - top_plane),
+			near_plane / (near_plane - far_plane),
+			1.0f
 	};
 
 	 return proj;
@@ -249,6 +274,8 @@ void VKE::Camera::calculateStaticMatrices(float32 fov, float32 window_width, flo
 
 	//ortho_matrix_ = getOrthoMatrix(window_width, window_height, 0, 0);
   ortho_matrix_ = glm::ortho(0.0f, window_width, window_height, 0.0f);
+	ortho_matrix_[1][1] *= -1.0f; // Reversal of Y axis, Vulkan axis
+
 
   near_ = near_plane;
   far_ = far_plane;

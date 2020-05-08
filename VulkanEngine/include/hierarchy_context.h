@@ -4,6 +4,7 @@
 #include "platform_types.h"
 #include <vector>
 #include <map>
+#include <functional>
 #include <glm/matrix.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
@@ -26,7 +27,6 @@ namespace VKE{
 	protected:
 		BaseComponent();
 		~BaseComponent();
-
 
 		uint32 id_;
 		bool in_use_;
@@ -59,10 +59,13 @@ namespace VKE{
 
 		VKE::InternalBuffer& getUBMBuffer();
 
-		//void Update();
 		void reset() override;
+		void setLambda(std::function<void(HierarchyContext*,TransformComponent&)>);
 
 	private:
+		std::function<void(VKE::HierarchyContext*, TransformComponent&)> update_lambda = nullptr;
+
+
 		glm::vec3 pos_;
 		glm::quat quat_;
 		glm::vec3 scale_;
@@ -87,6 +90,8 @@ namespace VKE{
 		VKE::InternalBuffer& getVertexBuffer();
 		VKE::InternalBuffer& getIndexBuffer();
 		VKE::InternalMaterial& getMaterial();
+
+		void RecreateShader();
 
 	private:
 		VKE::Buffer vertex_buffer_;
@@ -150,17 +155,22 @@ namespace VKE{
 		HierarchyContext(RenderContext* render_ctx);
 		~HierarchyContext();
 
-		Entity& getEntity();
+		Entity& getEntity(std::string name);
 		RenderContext* getRenderContext() { return render_ctx_; }
 		template<class Component> Manager<Component>* GetComponentManager();
 		void UpdateManagers();
 
+		std::vector<VKE::ui_data>& getUIData();
+
 	private:
 		HierarchyContext();
+
+		std::vector<VKE::ui_data> entities_ui_data;
 
 
 		std::vector<Entity> entities_;
 		std::map<uint64, void*> component_managers_;
+		uint32 entities_in_use = 0;
 		
 		RenderContext* render_ctx_;
 

@@ -3,6 +3,7 @@
 
 layout(binding = 0, set = 0) uniform UniformBufferMatrices {
     mat4 model;
+		mat4 model_inv;
     mat4 view;
     mat4 proj;
 } ubm;
