@@ -5,8 +5,17 @@ layout(binding = 0, set = 1) uniform samplerCube cubemap;
 layout(binding = 0, set = 2) uniform UniformLightData {
 		mat4 light_space;
 		vec4 light_dir;
-		vec4 camera_dir;
-		vec4 color_ambient;
+
+		vec3 camera_pos;
+		float shininess;
+
+		vec3 color;
+		float ambient;
+
+		float shineexp;
+		float exposure;
+		vec2 empty;
+
 		int debug_mode;
 } uld;
 
@@ -20,9 +29,9 @@ void main() {
 		
 		float width = 720;
 		float height = 640;
-		vec3 sunBaseColor = uld.color_ambient.xyz;
+		vec3 sunBaseColor = uld.color * 16.0;
 
-		vec3 out_color = texture(cubemap, normalize(vert_texcoord)).xyz;
+		vec3 out_color = texture(cubemap, normalize(vert_texcoord)).xyz * (uld.color + uld.ambient);
 
 		float sunRadius = length(normalize(vert_texcoord) - normalize(uld.light_dir.xyz));
 		float smoothRadius = 0.0f;
@@ -32,7 +41,7 @@ void main() {
 		{
 			sunRadius /= r_Sun;
 			smoothRadius = smoothstep(0,1,0.1f/sunRadius-0.1f);
-			out_color = mix(out_color, sunBaseColor * 4, smoothRadius);
+			out_color = mix(out_color, sunBaseColor, smoothRadius);
 			
 			//smoothRadius = smoothstep(0,1,0.18f/sunRadius-0.2f);
 			//out_LightScattering = mix(vec3(0), sunBaseColor, smoothRadius);

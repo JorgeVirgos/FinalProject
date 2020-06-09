@@ -52,7 +52,10 @@ namespace VKE {
 	struct AppUniformRenderData{
 		float ambient_ = 0.1f;
 		float sun_angle_ = 0.0f;
-		glm::vec3 light_color_ = glm::vec3(1.0f,0.79f,0.43f);
+		glm::vec3 light_color_ = glm::vec3(1.0f,0.88f,0.67f);
+		float light_intensity_ = 1.0f;
+		float shininess_exponential_ = 16.0f;
+		float exposure_ = 1.0f;
 		int32 debug_type_ = 0;
 		bool should_recreate_shaders = false;
 		void Draw();

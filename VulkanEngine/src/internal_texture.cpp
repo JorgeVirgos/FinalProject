@@ -146,7 +146,7 @@ void VKE::InternalTexture::load(uchar8* pixels) {
 		break;
 	case TextureType_ColorAttachment:
 		type_ = VK_IMAGE_TYPE_2D;
-		format_ = render_ctx_->getCurrentSwapChainTexture().format_;
+		format_ = VK_FORMAT_R32G32B32A32_SFLOAT;// render_ctx_->getCurrentSwapChainTexture().format_;
 		imageInfo.usage |= VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
 		break;
 	case TextureType_DepthAttachment:

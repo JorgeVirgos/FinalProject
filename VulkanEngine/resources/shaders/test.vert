@@ -11,10 +11,17 @@ layout(binding = 0, set = 0) uniform UniformBufferMatrices {
 layout(binding = 0, set = 2) uniform UniformLightData {
 		mat4 light_space;
 		vec4 light_dir;
+
 		vec3 camera_pos;
 		float shininess;
+
 		vec3 color;
 		float ambient;
+
+		float shineexp;
+		float exposure;
+		vec2 empty;
+
 		int debug_mode;
 } uld;
 

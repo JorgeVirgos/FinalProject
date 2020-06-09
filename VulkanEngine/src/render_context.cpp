@@ -134,6 +134,7 @@ void VKE::RenderContext::cleanup() {
 	staging_buffer_.reset(this);
 	world_lighting_data_.reset(this);
 	VKE::InternalTexture::resetSampler(this);
+	shadow_mapping_material_.reset(this);
 
 	std::for_each(descriptorSetLayouts.begin(), descriptorSetLayouts.end(), [this](VkDescriptorSetLayout layout) { vkDestroyDescriptorSetLayout(this->getDevice(), layout, nullptr); });
 	vkDestroyDescriptorPool(device_, descriptorPool, nullptr);
@@ -152,19 +153,23 @@ void VKE::RenderContext::cleanup() {
 void VKE::RenderContext::cleanupSwapChain() {
 
 	depth_image_.reset(this);
+	shadow_mapping_image_.reset(this);
 
 	for (auto framebuffer : swapChainFramebuffers)
 		vkDestroyFramebuffer(device_, framebuffer, nullptr);
 	vkDestroyFramebuffer(device_, sceneFramebuffer, nullptr);
+	vkDestroyFramebuffer(device_, shadowFramebuffer, nullptr);
 
 
 	vkFreeCommandBuffers(device_, commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 	vkDestroyRenderPass(device_, renderPass, nullptr);
 	vkDestroyRenderPass(device_, quadRenderPass, nullptr);
+	vkDestroyRenderPass(device_, shadowRenderPass, nullptr);
 
 	for (auto& tex : swapChainTextures)
 		vkDestroyImageView(device_, tex.image_view_, nullptr);
 	offscreen_image_.reset(this);
+	shadow_mapping_material_.reset(this);
 
 	vkDestroySwapchainKHR(device_, swapChain, nullptr);
 }
@@ -188,6 +193,13 @@ void VKE::RenderContext::recreateSwapChain() {
 	createDepthResources();
 	quadscreen_entity_->GetFirstComponent<VKE::RenderComponent>()->getMaterial().UpdateTextures(offscreen_image_);
 	createRenderPass();
+	VKE::MaterialInfo shadow_mat_info;
+	shadow_mat_info.vert_shader_name_ = "shadowmap_vert.spv";
+	shadow_mat_info.frag_shader_name_ = "shadowmap_frag.spv";
+	shadow_mat_info.pipeline_type_ = VKE::PipelineType_Shadow;
+	shadow_mat_info.cull_mode_ = VK_CULL_MODE_NONE;
+	shadow_mapping_material_.init(this, shadow_mat_info);
+	shadow_mapping_material_.UpdateTextures(shadow_mapping_image_);
 	createFramebuffers();
 	createCommandBuffers();
 }
@@ -847,7 +859,7 @@ void VKE::RenderContext::createRenderPass() {
 	
 
 	VkAttachmentDescription colorAttachment = {};
-	colorAttachment.format = swapChainImageFormat;
+	colorAttachment.format = VK_FORMAT_R32G32B32A32_SFLOAT; //swapChainImageFormat;
 	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -1712,12 +1724,19 @@ void  VKE::RenderContext::updateLightData() {
 	float64 t = 0.0;
 	glm::vec3 light_color = glm::vec3(1.0, 0.79, 0.43);
 	uint32 debug_shader = 0;
+	float light_intensity = 1.0f;
+	float shininess_exponential = 16.0f;
+	float exposure = 1.0f;
 
 	if (window_->rendering_options != nullptr) {
+
 		ambient = window_->rendering_options->ambient_;
 		t = window_->rendering_options->sun_angle_;
 		light_color = window_->rendering_options->light_color_;
 		debug_shader = static_cast<uint32>(window_->rendering_options->debug_type_);
+		light_intensity = window_->rendering_options->light_intensity_;
+		shininess_exponential = window_->rendering_options->shininess_exponential_;
+		exposure = window_->rendering_options->exposure_;
 
 		recreate_shaders_ = window_->rendering_options->should_recreate_shaders;
 		if(recreate_shaders_) 
@@ -1746,7 +1765,8 @@ void  VKE::RenderContext::updateLightData() {
 	uld.light_space = light_ortho * Camera::getViewMatrix(sun_light_pos, light_front_, light_up_);
 	uld.light_dir = glm::vec4(-light_front_, 0.0f);
 	uld.camera_pos = glm::vec4(camera_.pos(), 0.5f);
-	uld.color_ambient = glm::vec4(light_color, ambient);
+	uld.color_ambient = glm::vec4(light_color * light_intensity, ambient);
+	uld.shineexp_exposure = glm::vec4(shininess_exponential, exposure, static_cast<float32>(window_->getTimeSinceStartup()), 0.0);
 	uld.debug_shader = debug_shader;
 
 	world_lighting_data_.uploadData((void*)&uld);

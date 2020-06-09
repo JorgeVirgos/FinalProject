@@ -148,9 +148,9 @@ static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
 	auto hier_ctx = reinterpret_cast<VKE::HierarchyContext*>(glfwGetWindowUserPointer(window));
 	if (hier_ctx != nullptr && hier_ctx->getRenderContext() != nullptr) {
 		hier_ctx->getRenderContext()->recreateSwapChain();
-		hier_ctx->UpdateManagers();
-		hier_ctx->getRenderContext()->getCamera().calculateStaticMatrices(70.0f, width, height, 0.1f, 100.0f);
-		hier_ctx->getRenderContext()->draw();
+		//hier_ctx->UpdateManagers();
+		//hier_ctx->getRenderContext()->getCamera().calculateStaticMatrices(70.0f, width, height, 0.1f, 100.0f);
+		//hier_ctx->getRenderContext()->draw();
 	}
 }
 
@@ -161,7 +161,7 @@ void VKE::Window::initWindow(uint32 width, uint32 height, HierarchyContext* hier
 
 	glfwInit();
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
 	GLFWmonitor *monitor = glfwGetPrimaryMonitor();
 	auto video_mode = glfwGetVideoMode(monitor);
@@ -516,13 +516,19 @@ void VKE::AppUniformRenderData::Draw()
 	ImGui::Separator();
 	ImGui::NewLine();
 
-	ImGui::DragFloat("Ambient Lighting", &ambient_, 0.001f, 0.0f, 1.0f);
 	
 	ImGui::SliderFloat("Sun Trajectory", &sun_angle_, -glm::half_pi<float32>(), glm::half_pi<float32>());
 
-	static float32 color[3] = { 1.0f,0.79f,0.43f };
+	static float32 color[3] = { 1.0f,0.88f,0.67f };
 	ImGui::ColorEdit3("Light Color", color);
 	light_color_ = glm::vec3(color[0], color[1], color[2]);
+
+	ImGui::DragFloat("Sun Light Intensity", &light_intensity_, 0.02f, 0.0f, 10000.0f);
+	ImGui::DragFloat("Ambient Lighting", &ambient_, 0.001f, 0.0f, 1.0f);
+	ImGui::DragFloat("HDR Exposure", &exposure_, 0.01f);
+
+	ImGui::SliderFloat("Shininess Exponential", &shininess_exponential_, 2.0f, 256.0f, "%.0f", 2.0f);
+
 
 	char* debug_types[] = { "None","Normals", "Light Intensity", "Specular Light" };
 	ImGui::Combo("Debug Shader Visualizations", &debug_type_, debug_types, 4);

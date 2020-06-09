@@ -14,6 +14,9 @@ C:/VulkanSDK/1.1.121.2/Bin/glslc.exe ./../../resources/shaders/quadscreen.frag -
 
 C:/VulkanSDK/1.1.121.2/Bin/glslc.exe ./../../resources/shaders/shadowmap.vert -o ./../../resources/shaders/shadowmap_vert.spv
 C:/VulkanSDK/1.1.121.2/Bin/glslc.exe ./../../resources/shaders/shadowmap.frag -o ./../../resources/shaders/shadowmap_frag.spv
+
+C:/VulkanSDK/1.1.121.2/Bin/glslc.exe ./../../resources/shaders/gerstner.vert -o ./../../resources/shaders/gerstner_vert.spv
+C:/VulkanSDK/1.1.121.2/Bin/glslc.exe ./../../resources/shaders/gerstner.frag -o ./../../resources/shaders/gerstner_frag.spv
 echo Done.
 echo.
 @echo on

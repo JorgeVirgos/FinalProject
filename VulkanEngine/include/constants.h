@@ -118,6 +118,7 @@ namespace VKE{
 		alignas(4) glm::vec4 light_dir;
 		alignas(4) glm::vec4 camera_pos;
 		alignas(4) glm::vec4 color_ambient;
+		alignas(4) glm::vec4 shineexp_exposure;
 		uint32 debug_shader = 0;
 	};
 

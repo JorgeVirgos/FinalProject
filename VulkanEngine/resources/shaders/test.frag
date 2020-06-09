@@ -7,10 +7,17 @@ layout(binding = 1, set = 1) uniform sampler2D shadowSampler;
 layout(binding = 0, set = 2) uniform UniformLightData {
 		mat4 light_space;
 		vec4 light_dir;
+
 		vec3 camera_pos;
 		float shininess;
+
 		vec3 color;
 		float ambient;
+
+		float shineexp;
+		float exposure;
+		vec2 empty;
+
 		int debug_mode;
 } uld;
 
@@ -47,9 +54,7 @@ void main() {
     //vec4 albedo = vec4(pow(texture(texSampler, FragUV).rgb, vec3(gamma)), 1.0);
     vec4 albedo = texture(texSampler, FragUV);
 
-		vec3 light_color = vec3(max(1.0, uld.color.x),
-		max(1.0, uld.color.y),
-		max(1.0, uld.color.z));
+		vec3 light_color = uld.color;
 
 		vec3 ambient = light_color * uld.ambient;
 
@@ -62,7 +67,7 @@ void main() {
 		//float spec_factor = pow(max(dot(camera_dir, reflect_dir), 0.0),64.0);
 
 		vec3 halfway_dir = normalize(uld.light_dir.xyz + camera_dir);
-		float spec_factor = pow(max(dot(halfway_dir, normal), 0.0),32.0);
+		float spec_factor = pow(max(dot(halfway_dir, normal), 0.0),uld.shineexp);
 
 		vec3 specular_light = 0.75f * spec_factor * light_color;
 
